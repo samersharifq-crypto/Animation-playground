@@ -25,3 +25,14 @@ Open `beyond-the-familiar/index.html` to play it. Play/pause, replay and a scrub
 
 Scenes: the familiar morning → walking without seeing (Najdi alley) → a small interruption (the door) → what was always there (the courtyard) → a different way of looking (book & window) → the same world, seen again.
 Transitions: the cup rim becomes a patch of light, a beam of light widens across the frame, the opening door wipes into the courtyard, a floating leaf becomes a pressed leaf, and the courtyard window cuts to the room window.
+
+## beyond-the-familiar-city/ — «ما وراء المألوف» (city)
+
+A 60-second vertical (9:16) animated short, plus a 5-second title. A man walks through an unnamed, New York–inspired city without noticing it, until small discoveries change how he sees it.
+It's drawn live on canvas: an elongated, backlit figure in a dark coat with a hard teal rim light, geometric façades, and a print pass that limits every frame to the palette (muted teal, charcoal, dusty rose, terracotta, warm ivory, a little sunlight) and stipples the gradients.
+
+- `index.html`: the playable film. Play/pause, replay, sound (M) and a timeline sit below the artwork.
+- `beyond-the-familiar-city.mp4`: the rendered 1080×1920 video with sound design.
+- `beyond-the-familiar-city-sound.m4a`: the generated soundtrack. It has city ambience that hushes in the courtyard, footsteps synced to the walk cycle, cars, a subway train, leaves, paper and sparse piano.
+- `narration-timing.srt`: the exact Arabic narration lines with their on-screen timings. Put a recorded voiceover at `narration.mp3` next to `index.html` and the player plays it in sync.
+- `node beyond-the-familiar-city/tools/record.js` renders the MP4 again, and the soundtrack with it.

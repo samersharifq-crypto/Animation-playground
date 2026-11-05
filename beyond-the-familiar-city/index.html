@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ما وراء المألوف</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #141317; --ink: #f4eee3; --line: rgba(244,238,227,.22); --accent: #f3c46a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  #wrap { height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 12px 16px; }
+  #stage { position: relative; background: #000; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
+  #art { display: block; width: 100%; height: 100%; }
+  #controls { display: flex; align-items: center; gap: 10px; direction: ltr; font: 500 13px/1 system-ui, sans-serif; }
+  #controls button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: #24212a; color: var(--ink); font-size: 15px; cursor: pointer; display: grid; place-items: center; flex: none; }
+  #controls button:hover { border-color: rgba(244,238,227,.55); }
+  #controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #controls button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  #bar { position: relative; flex: 1; height: 28px; cursor: pointer; touch-action: none; }
+  #bar::before { content: ""; position: absolute; left: 0; right: 0; top: 13px; height: 2px; border-radius: 2px; background: var(--line); }
+  #fill { position: absolute; left: 0; top: 13px; height: 2px; width: 0; border-radius: 2px; background: var(--accent); }
+  #time { font-variant-numeric: tabular-nums; opacity: .7; min-width: 74px; text-align: right; }
+  #loading { position: absolute; inset: 0; display: grid; place-items: center; font: 400 15px system-ui, sans-serif; color: rgba(244,238,227,.6); }
+</style>
+</head>
+<body>
+<main id="wrap">
+  <div id="stage">
+    <canvas id="art" width="1080" height="1920" role="img" aria-label="ما وراء المألوف — فيلم رسوم متحركة قصير"></canvas>
+    <div id="loading">…</div>
+  </div>
+  <div id="controls">
+    <button id="pp" aria-label="إيقاف مؤقت" title="Pause / Play (Space)">❚❚</button>
+    <button id="rp" aria-label="إعادة التشغيل" title="Replay">↺</button>
+    <button id="snd" aria-label="الصوت" aria-pressed="false" title="Sound (M)">♪</button>
+    <div id="bar" aria-label="Timeline"><div id="fill"></div></div>
+    <div id="time">0:00 / 1:05</div>
+  </div>
+</main>
+<audio id="amb" src="beyond-the-familiar-city-sound.m4a" preload="auto"></audio>
+<audio id="vo" src="narration.mp3" preload="auto"></audio>
+<script>
+"use strict";
+/* =====================================================================
+   ما وراء المألوف — Beyond the Familiar (city)
+   A 60-second vertical short + title. Flat geometric city, elongated
+   backlit figure, a print pass that limits everything to the palette and
+   stipples the light. Every frame is a pure function of time.
+   ===================================================================== */
+const W = 1080, H = 1920;
+const art = document.getElementById('art');
+const MAIN = art.getContext('2d');
+const SRC = document.createElement('canvas'); SRC.width = W; SRC.height = H;
+const SRCX = SRC.getContext('2d');
+let ctx = MAIN;
+
+/* ---------------- palette ---------------- */
+const C = {
+  ink: '#1c1b20', char: '#2a2830', char2: '#3a3741', char3: '#524d58',
+  teal: '#2d5a63', teal2: '#477d86', teal3: '#76a3a4', teal4: '#a8c6c1',
+  rose: '#a87773', rose2: '#c49890', rose3: '#dfbdb3',
+  terra: '#a9543f', terra2: '#c66f53', terra3: '#dd9473',
+  ivory: '#f4eee3', ivory2: '#ddd3c2', sun: '#f3c46a', sun2: '#ffe0a0',
+  skin: '#c48b6d', skinS: '#7b5045', hair: '#19171b',
+  coat: '#35303c', coatD: '#26232b', trou: '#2a2730', shoe: '#141216', wood: '#6b4334', wood2: '#87573f',
+};
+const INKS = [C.ink, C.char, C.char2, C.char3, C.teal, C.teal2, C.teal3, C.teal4, C.rose, C.rose2, C.rose3, C.terra, C.terra2, C.terra3,
+  C.ivory, C.ivory2, C.sun, C.sun2, C.skin, C.skinS, C.coat, C.coatD, C.wood, C.wood2, '#1f3d44', '#7d6f78', '#e9d9c4'];
+
+/* ---------------- helpers ---------------- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const ease = t => (t = clamp(t), t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOut = t => 1 - Math.pow(1 - clamp(t), 3);
+const mod = (a, n) => ((a % n) + n) % n;
+function canvas(w = W, h = H) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function rgba(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${n >> 8 & 255},${n & 255},${a})`; }
+function radial(x, y, r, hex, a, c = ctx) { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, rgba(hex, a)); g.addColorStop(1, rgba(hex, 0)); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); }
+function lin(c, x0, y0, x1, y1, stops) { const g = c.createLinearGradient(x0, y0, x1, y1); stops.forEach(([o, col]) => g.addColorStop(o, col)); return g; }
+function poly(pts, c = ctx) { c.beginPath(); c.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]); c.closePath(); }
+function P(pts) { const p = new Path2D(); p.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) p.lineTo(pts[i], pts[i + 1]); p.closePath(); return p; }
+function cam(pwx, pwy, psx, psy, s) { ctx.translate(psx, psy); ctx.scale(s, s); ctx.translate(-pwx, -pwy); }
+function rim(path, base, lit, dx, dy = 0) { ctx.fillStyle = lit; ctx.fill(path); ctx.save(); ctx.clip(path); ctx.translate(-dx, dy); ctx.fillStyle = base; ctx.fill(path); ctx.restore(); }
+function vignette(a) { const g = ctx.createRadialGradient(W / 2, H * .46, H * .28, W / 2, H * .5, H * .78); g.addColorStop(0, rgba(C.ink, 0)); g.addColorStop(1, rgba(C.ink, a)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+function shade(x0, y0, x1, y1, hex, a) { ctx.fillStyle = lin(ctx, x0, y0, x1, y1, [[0, rgba(hex, 0)], [1, rgba(hex, a)]]); ctx.fillRect(0, 0, W, H); }
+function drawLeaf(x, y, len, rot, fill, vein = null, sy = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(1, sy); ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(-len / 2, 0);
+  ctx.bezierCurveTo(-len * .2, -len * .34, len * .25, -len * .28, len / 2, 0); ctx.bezierCurveTo(len * .25, len * .28, -len * .2, len * .34, -len / 2, 0); ctx.fill();
+  if (vein) { ctx.strokeStyle = vein; ctx.lineWidth = Math.max(1, len * .03); ctx.beginPath(); ctx.moveTo(-len * .62, 0); ctx.lineTo(len * .42, 0); ctx.stroke(); }
+  ctx.restore();
+}
+function steam(x, y, h, t, a = 1, w = 1) {
+  ctx.save(); ctx.lineCap = 'round';
+  for (const [o, wt] of [[0, 1], [1.9, .6], [3.4, .45]]) {
+    const p = new Path2D();
+    for (let i = 0; i <= 40; i++) { const q = i / 40, yy = y - q * h;
+      const xx = x + (Math.sin(q * 4.0 - t * .9 + o) * .62 + Math.sin(q * 7.3 - t * 1.4 + o * 2) * .22) * q * 60 * w + Math.sin(t * .3 + o) * q * 26 * w + (o - 1.8) * 5 * w * q;
+      i ? p.lineTo(xx, yy) : p.moveTo(xx, yy); }
+    ctx.strokeStyle = lin(ctx, 0, y, 0, y - h, [[0, rgba(C.ivory, 0)], [.12, rgba(C.ivory, .7 * a * wt)], [.6, rgba(C.ivory, .3 * a * wt)], [1, rgba(C.ivory, 0)]]);
+    ctx.lineWidth = 16 * w; ctx.globalAlpha = .35; ctx.stroke(p); ctx.lineWidth = 6 * w; ctx.globalAlpha = 1; ctx.stroke(p);
+  }
+  ctx.restore();
+}
+function dust(x0, y0, x1, y1, t, n, seed, a = .8) {
+  for (let i = 0; i < n; i++) { const r = mulberry32(seed + i), u = mod(r() + t * (.01 + r() * .015), 1);
+    ctx.fillStyle = rgba(C.sun2, a * Math.sin(u * Math.PI)); ctx.beginPath();
+    ctx.arc(lerp(x0, x1, r()) + Math.sin(t * .7 + i) * 14, lerp(y1, y0, u), 2 + r() * 2.5, 0, 7); ctx.fill(); }
+}
+
+/* =====================================================================
+   THE MAN — elongated, dark coat, minimal face, rim of cool light
+   ===================================================================== */
+const MAN = { coat: C.coat, coatD: C.coatD, lit: C.teal2, trou: C.trou, shoe: C.shoe, skin: C.skin, skinS: C.skinS, hair: C.hair };
+const HEAD = P([-26, -44, -36, -70, -34, -100, -20, -122, 4, -130, 24, -124, 34, -108, 36, -92, 45, -80, 36, -74, 35, -64, 30, -52, 14, -44]);
+const HAIRP = P([-30, -60, -40, -92, -30, -122, -4, -137, 24, -131, 39, -112, 30, -111, 10, -117, -6, -110, -14, -90, -18, -64]);
+function headSide(o, pal, L) {             // origin: neck base, facing +x
+  ctx.save(); ctx.rotate(-(o.look || 0) * .28);
+  ctx.fillStyle = pal.skinS; ctx.fillRect(-9, -46, 20, 50);
+  rim(HEAD, pal.skinS, pal.skin, 9 * L, 3);
+  ctx.fillStyle = pal.hair; ctx.fill(HAIRP);
+  if (!o.sil) {
+    ctx.fillStyle = pal.skinS; ctx.beginPath(); ctx.ellipse(-6, -82, 6, 10, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = C.ink;
+    if (o.blink) ctx.fillRect(18, -93, 10, 2.5); else { ctx.beginPath(); ctx.ellipse(23 + (o.gaze || 0) * 3, -92, 3.2, 4.2, 0, 0, 7); ctx.fill(); }
+    ctx.fillRect(15, -104, 16, 3);
+  }
+  ctx.restore();
+}
+function cupShape(x, y, s = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  rim(P([-18, -40, 18, -40, 14, 16, -14, 16]), C.ivory2, C.ivory, 8);
+  ctx.fillStyle = C.terra2; poly([-17, -20, 17, -20, 15, 0, -15, 0]); ctx.fill();
+  ctx.fillStyle = C.char; poly([-21, -48, 21, -48, 19, -40, -19, -40]); ctx.fill();
+  ctx.restore();
+}
+// profile; origin = feet; height ~760 at s=1
+function walkSide(x, y, s, o = {}) {
+  const pal = o.pal || MAN, ph = o.phase || 0, wk = o.walk ?? 0, L = (o.flip ? -1 : 1) * (o.light ?? 1);
+  const br = Math.sin((o.t || 0) * 1.6) * 3 * (o.breathe ?? 1), tense = (o.tense || 0) * 10;
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1); ctx.translate(x, y); ctx.scale(o.flip ? -s * (o.sx ?? 1) : s * (o.sx ?? 1), s);
+  const A = .4 * wk, a1 = Math.sin(ph) * A, a2 = -a1;
+  ctx.translate(0, 380 * (1 - Math.cos(Math.abs(a1))) * .85);
+  const leg = (p, a, dark) => {
+    const kx = Math.sin(a) * 190, ky = -380 + Math.cos(a) * 190, bend = Math.max(0, Math.cos(p)) * 1.0 * wk + .04, sa = a - bend;
+    const fx = kx + Math.sin(sa) * 192, fy = ky + Math.cos(sa) * 192;
+    ctx.strokeStyle = dark ? pal.coatD : pal.trou; ctx.lineWidth = 36; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(0, -380); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+    ctx.save(); ctx.translate(fx, fy); ctx.rotate(clamp(sa * .7, -.5, .5)); ctx.fillStyle = pal.shoe; ctx.beginPath(); ctx.ellipse(18, -2, 34, 12, 0, 0, 7); ctx.fill(); ctx.restore();
+  };
+  const sleeve = (pts, dark) => {
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 40;
+    const path = () => { ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]); };
+    if (dark) { ctx.strokeStyle = pal.coatD; path(); ctx.stroke(); }
+    else { ctx.strokeStyle = pal.lit; path(); ctx.stroke(); ctx.save(); ctx.translate(-11 * L, 4); ctx.strokeStyle = pal.coat; path(); ctx.stroke(); ctx.restore(); }
+    const hx = pts[pts.length - 2], hy = pts[pts.length - 1];
+    ctx.fillStyle = dark ? pal.skinS : pal.skin; ctx.beginPath(); ctx.ellipse(hx + 4, hy + 10, 13, 17, 0, 0, 7); ctx.fill();
+  };
+  const armPts = ang => { const ex = Math.sin(ang) * 150, ey = -630 + tense - br + Math.cos(ang) * 150; return [6, -630 + tense - br, ex, ey, ex + Math.sin(ang + .3) * 140, ey + Math.cos(ang + .3) * 140]; };
+  leg(ph + Math.PI, a2, true);
+  sleeve(armPts(a1 * .8), true);
+  leg(ph, a1, false);
+  const sw = Math.sin(ph) * wk;
+  const coat = new Path2D(); coat.moveTo(-34, -648 + tense - br); coat.quadraticCurveTo(-58, -600, -56, -520); coat.lineTo(-66 - sw * 8, -292);
+  coat.quadraticCurveTo(0, -280, 64 + sw * 10, -296); coat.lineTo(52, -520); coat.quadraticCurveTo(54 + br * .4, -610, 30, -648 + tense - br); coat.quadraticCurveTo(0, -660, -34, -648 + tense - br); coat.closePath();
+  rim(coat, pal.coat, pal.lit, 22 * L, 4);
+  if (!o.sil) { ctx.strokeStyle = rgba(C.ink, .5); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(38, -600); ctx.lineTo(44, -300); ctx.stroke();
+    ctx.fillStyle = C.ivory2; poly([16, -650 + tense - br, 32, -646 + tense - br, 26, -612]); ctx.fill(); }
+  ctx.save(); ctx.translate(8, -650 + tense - br); ctx.scale(.7, .7); headSide(o, pal, L); ctx.restore();
+  if (o.cup) {
+    const f = o.finger || 0, hx = 66, hy = -548 + f * 4;
+    sleeve([6, -630 + tense - br, 22, -488, hx - 6, hy], false);
+    cupShape(hx + 12, hy - 6, 1);
+    ctx.fillStyle = pal.skin; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(hx + 22, hy - 22 + i * 12 + f * (i - 1) * 2, 8, 5, 0, 0, 7); ctx.fill(); }
+  } else sleeve(armPts(a2 * .8), false);
+  ctx.restore();
+}
+// from behind; origin = feet
+function walkBack(x, y, s, o = {}) {
+  const pal = o.pal || MAN, ph = o.phase || 0, wk = o.walk ?? 0, look = o.look || 0, L = o.light ?? 1, tense = (o.tense || 0) * 12, turn = o.turn || 0;
+  const br = Math.sin((o.t || 0) * 1.6) * 2.5;
+  ctx.save(); ctx.globalAlpha *= (o.alpha ?? 1); ctx.translate(x, y); ctx.scale(s * (o.sx ?? 1), s);
+  for (const side of [-1, 1]) { const lift = Math.max(0, side * Math.sin(ph)) * 46 * wk;
+    ctx.fillStyle = side === L ? pal.trou : pal.coatD; ctx.fillRect(side * 26 - 18, -380, 36, 380 - lift);
+    ctx.fillStyle = pal.shoe; ctx.beginPath(); ctx.ellipse(side * 26, -8 - lift, 22, 12, 0, 0, 7); ctx.fill(); }
+  ctx.translate(Math.sin(ph) * 5 * wk, -Math.abs(Math.cos(ph)) * 6 * wk);
+  for (const side of [-1, 1]) { const swing = Math.cos(ph) * side * 16 * wk;
+    ctx.fillStyle = side === L ? pal.lit : pal.coatD;
+    poly([side * 58, -628 + tense - br, side * 80, -560, side * 82 + swing * .3, -420 + swing, side * 58 + swing * .3, -420 + swing, side * 54, -600]); ctx.fill();
+    ctx.fillStyle = side === L ? pal.skin : pal.skinS; ctx.beginPath(); ctx.ellipse(side * 72 + swing * .3, -404 + swing, 13, 17, 0, 0, 7); ctx.fill(); }
+  const coat = P([-62, -640 + tense - br, -66, -520, -76, -292, -40, -284, 0, -282, 40, -284, 76, -292, 66, -520, 62, -640 + tense - br, 30, -654 + tense - br, -30, -654 + tense - br]);
+  rim(coat, pal.coat, pal.lit, 26 * L, 4);
+  if (!o.sil) { ctx.strokeStyle = rgba(C.ink, .55); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, -430); ctx.lineTo(0, -284); ctx.moveTo(-62, -470); ctx.lineTo(62, -470); ctx.stroke(); }
+  ctx.fillStyle = pal.skinS; ctx.fillRect(-12, -686 + tense, 24, 40); ctx.fillStyle = pal.coatD; poly([-34, -654 + tense - br, 34, -654 + tense - br, 22, -676 + tense, -22, -676 + tense]); ctx.fill();
+  const hy = -716 - look * 8 + tense * .6, tx = turn * 9;
+  ctx.fillStyle = pal.skinS; ctx.beginPath(); ctx.ellipse(-31 + tx * .5, hy + 6, 6, 11, 0, 0, 7); ctx.fill(); ctx.fillStyle = pal.skin; ctx.beginPath(); ctx.ellipse(31 + tx * .5, hy + 6, 6, 11, 0, 0, 7); ctx.fill();
+  if (Math.abs(turn) > .3) { ctx.fillStyle = turn > 0 ? pal.skin : pal.skinS; ctx.beginPath(); ctx.ellipse(turn * 34, hy + 10, 9, 14, 0, 0, 7); ctx.fill(); }
+  ctx.fillStyle = pal.hair; ctx.beginPath(); ctx.ellipse(tx * .3, hy - look * 4, 32, 40 - look * 7, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = rgba(L > 0 ? C.teal2 : C.teal, .9); ctx.beginPath(); ctx.ellipse(L * 22 + tx * .3, hy - 10 - look * 4, 7, 22, .15 * L, 0, 7); ctx.fill();
+  ctx.restore();
+}
+// turning from profile to back: squash one into the other
+function turning(x, y, s, u, side, back) {
+  if (u < .5) walkSide(x, y, s, Object.assign({}, side, { sx: 1 - u * 2 }));
+  else walkBack(x, y, s, Object.assign({}, back, { sx: u * 2 - 1 }));
+}
+const CROWD = [C.char2, C.char3, '#1f3d44', C.char, '#4a3e48'];
+function passer(x, y, s, t, k, dir, extra = {}) {
+  const col = CROWD[k % CROWD.length];
+  walkSide(x, y, s, Object.assign({ pal: { coat: col, coatD: C.ink, lit: k % 2 ? C.teal2 : C.rose, trou: C.ink, shoe: C.ink, skin: col, skinS: col, hair: C.ink }, sil: true, flip: dir < 0, phase: t * 7 + k * 1.7, walk: 1, t }, extra));
+}
+
+/* =====================================================================
+   SCENE 1 — A MORNING HE BARELY NOTICES (café window)
+   ===================================================================== */
+const CAFE = (() => {
+  const c = canvas(), g = c.getContext('2d'), prev = ctx; ctx = g; const r = mulberry32(3);
+  g.fillStyle = C.teal; g.fillRect(0, 0, W, 130); g.fillStyle = C.teal2; for (const y of [22, 46, 70]) g.fillRect(0, y, W, 6);
+  g.fillStyle = C.rose; g.fillRect(0, 130, W, 520);
+  g.fillStyle = lin(g, 0, 130, 0, 650, [[0, rgba(C.char, .35)], [.5, rgba(C.char, 0)]]); g.fillRect(0, 130, W, 520);
+  for (let i = 0; i < 4; i++) { const x = 90 + i * 240; g.fillStyle = C.ivory2; g.fillRect(x, 440, 170, 180); g.fillStyle = i === 2 ? C.sun : C.teal; g.fillRect(x + 12, 452, 146, 168); g.fillStyle = C.ivory2; g.fillRect(x + 82, 452, 6, 168); }
+  g.fillStyle = C.ivory; g.fillRect(0, 640, W, 40); g.fillStyle = C.ivory2; g.fillRect(0, 676, W, 6);
+  g.fillStyle = C.terra; g.fillRect(40, 690, 1000, 60); g.fillStyle = C.terra2; for (let x = 40; x < 1040; x += 50) { g.beginPath(); g.arc(x + 25, 750, 25, 0, Math.PI); g.fill(); }
+  g.fillStyle = C.char; g.fillRect(60, 790, 960, 740);
+  // warm interior
+  g.save(); g.beginPath(); g.rect(90, 820, 900, 620); g.clip();
+  g.fillStyle = lin(g, 0, 820, 0, 1440, [[0, C.terra2], [.55, C.rose2], [1, C.terra]]); g.fillRect(90, 820, 900, 620);
+  for (const lx of [250, 540, 830]) { g.strokeStyle = C.char; g.lineWidth = 3; g.beginPath(); g.moveTo(lx, 820); g.lineTo(lx, 930); g.stroke(); g.fillStyle = C.char; poly([lx - 34, 960, lx + 34, 960, lx + 16, 930, lx - 16, 930], g); g.fill(); radial(lx, 975, 170, C.sun2, .75, g); g.fillStyle = C.sun2; g.fillRect(lx - 20, 958, 40, 8); }
+  g.fillStyle = C.wood; g.fillRect(90, 1260, 900, 180); g.fillStyle = C.wood2; g.fillRect(90, 1260, 900, 16);
+  for (let i = 0; i < 16; i++) { g.fillStyle = i % 3 ? C.ivory : C.teal4; g.fillRect(120 + i * 52, 1210 - (i % 2) * 6, 26, 40 + (i % 2) * 6); }
+  g.fillStyle = C.wood; for (const y of [1060, 1140]) g.fillRect(560, y, 400, 10);
+  for (let i = 0; i < 10; i++) { g.fillStyle = [C.ivory, C.teal3, C.rose3][i % 3]; g.fillRect(580 + i * 36, (i % 2 ? 1140 : 1060) - 34, 22, 34); }
+  g.restore();
+  g.fillStyle = C.char; g.fillRect(380, 820, 14, 620); g.fillRect(690, 820, 14, 620); g.fillRect(90, 1120, 900, 10);
+  g.fillStyle = C.terra; g.fillRect(60, 1440, 960, 90);
+  g.fillStyle = C.char2; g.fillRect(0, 1530, W, 390);
+  g.strokeStyle = rgba(C.teal, .7); g.lineWidth = 3; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(0, 1560 + i * 70 + i * i * 6); g.lineTo(W, 1560 + i * 70 + i * i * 6); g.stroke(); }
+  ctx = prev; return c;
+})();
+const BAR_PH = t => Math.sin(t * .6);
+function s1(t) {
+  const e = ease(t / 5.6);
+  ctx.save(); cam(706, 990, lerp(540, 706, e), lerp(820, 990, e), lerp(3.1, 1, e));
+  ctx.drawImage(CAFE, 0, 0);
+  // barista silhouette behind the counter
+  ctx.save(); ctx.beginPath(); ctx.rect(90, 820, 900, 620); ctx.clip();
+  const bx = 300 + BAR_PH(t) * 70; ctx.fillStyle = C.terra; ctx.beginPath(); ctx.ellipse(bx, 1100, 26, 32, 0, 0, 7); ctx.fill(); ctx.fillRect(bx - 40, 1130, 80, 140);
+  ctx.fillStyle = C.wood; ctx.fillRect(90, 1260, 900, 180);
+  // glass reflections, sliding
+  ctx.fillStyle = rgba(C.teal4, .2); const rx = mod(t * 40, 1400) - 300; poly([rx, 820, rx + 90, 820, rx - 230, 1440, rx - 320, 1440]); ctx.fill(); poly([rx + 160, 820, rx + 190, 820, rx - 130, 1440, rx - 160, 1440]); ctx.fill();
+  ctx.restore();
+  // warm spill onto the cool pavement
+  ctx.fillStyle = rgba(C.sun, .28); poly([90, 1530, 990, 1530, 1180, 1920, -100, 1920]); ctx.fill();
+  shade(0, 1530, 0, 1920, C.ink, .65);
+  // passers-by behind him (far edge of the pavement)
+  passer(mod(1300 - t * 260, 1700) - 200, 1580, .78, t, 1, -1);
+  const blink = (t > 2.3 && t < 2.42) || (t > 6.8 && t < 6.92);
+  walkSide(640, 1700, 1.22, { cup: true, t, look: smooth(4, 6.5, t) * .12, gaze: smooth(4, 6.5, t), blink, finger: Math.sin(t * 2.2) * smooth(2.5, 3.5, t) * (1 - smooth(4, 5, t)) + (t > 6 ? Math.sin(t * 3) * .5 : 0) });
+  steam(722, 932, 380, t, 1.2, .9);
+  // passers-by in front, briefly obscuring him
+  const p1 = (t - 2.2) / 2.4; if (p1 > 0 && p1 < 1) { ctx.save(); ctx.filter = 'blur(3px)'; passer(lerp(-500, 1600, p1), 2200, 1.75, t, 0, 1); ctx.restore(); ctx.filter = 'none'; }
+  const p2 = (t - 5.6) / 2.6; if (p2 > 0 && p2 < 1) passer(lerp(1500, -400, p2), 1880, 1.15, t, 2, -1);
+  ctx.restore();
+  vignette(.55);
+  tone(.75);
+  if (t < 1.2) { ctx.fillStyle = `rgba(0,0,0,${1 - smooth(0, 1.2, t)})`; ctx.fillRect(0, 0, W, H); }
+}
+function tone(sat, warm = 0) {
+  ctx.save();
+  if (sat < 1) { ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = `rgba(128,128,128,${1 - sat})`; ctx.fillRect(0, 0, W, H); }
+  if (warm > 0) { ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = rgba(C.sun, warm); ctx.fillRect(0, 0, W, H); }
+  ctx.restore();
+}
+
+/* =====================================================================
+   SCENE 2 — THE RHYTHM OF REPETITION (side-tracking street)
+   ===================================================================== */
+const FAR = (() => { const c = canvas(2400, 820), g = c.getContext('2d'), r = mulberry32(8); let x = 0;
+  while (x < 2400) { const w = 90 + r() * 140, h = 260 + r() * 160; g.fillStyle = r() < .5 ? C.teal3 : '#8fb3b1'; g.fillRect(x, 820 - h, w, h);
+    g.fillStyle = rgba(C.teal2, .55); for (let i = 10; i < w - 10; i += 22) g.fillRect(x + i, 820 - h + 20, 6, h - 30); x += w + 6; }
+  return c; })();
+const PASS_X = 1900;
+const MID = (() => { const c = canvas(3200, 1100), g = c.getContext('2d'), r = mulberry32(12), prev = ctx; ctx = g; let x = 0;
+  const fire = (bx, bw, top) => { g.strokeStyle = C.ink; g.lineWidth = 5; for (let y = top + 140; y < 860; y += 150) { g.beginPath(); g.moveTo(bx + 20, y); g.lineTo(bx + bw - 20, y); g.stroke(); g.beginPath(); g.moveTo(bx + 30, y); g.lineTo(bx + bw - 40, y - 150 + 20); g.stroke();
+      for (let k = bx + 20; k < bx + bw - 20; k += 14) { g.beginPath(); g.moveTo(k, y); g.lineTo(k, y - 30); g.stroke(); } } };
+  let gapDone = false;
+  while (x < 3200) {
+    if (!gapDone && x > PASS_X - 260) { gapDone = true; // the narrow passage: a dark gap between two buildings, with a slice of sun
+      x = PASS_X; g.fillStyle = C.ink; g.fillRect(PASS_X, 140, 130, 960); g.fillStyle = C.char; g.fillRect(PASS_X, 140, 18, 960); x = PASS_X + 134; continue; }
+    const w = (!gapDone && PASS_X - x < 480) ? Math.max(60, PASS_X - x - 4) : 260 + r() * 220, h = 760 + r() * 200, top = 1100 - h, kind = Math.floor(r() * 3);
+    const base = [C.terra, C.rose, C.char3][kind]; g.fillStyle = base; g.fillRect(x, top, w, h);
+    g.fillStyle = C.ivory2; g.fillRect(x - 4, top, w + 8, 18);
+    const cols = Math.max(2, Math.floor(w / 80)), gx = w / cols;
+    for (let i = 0; i < cols; i++) for (let y = top + 70; y < 860; y += 130) { const lit = r() < .14;
+      g.fillStyle = kind === 2 ? C.char : C.ivory2; g.fillRect(x + i * gx + gx * .2 - 5, y - 5, gx * .6 + 10, 92);
+      g.fillStyle = lit ? C.sun : (kind === 1 ? C.teal : '#1f3d44'); g.fillRect(x + i * gx + gx * .2, y, gx * .6, 82);
+      if (kind === 1) { g.fillStyle = C.ivory2; g.beginPath(); g.arc(x + i * gx + gx * .5, y, gx * .3, Math.PI, 0); g.fill(); } }
+    if (kind === 2 || r() < .3) fire(x, w, top);
+    g.fillStyle = C.char; g.fillRect(x, 880, w, 220);
+    const awn = [C.teal2, C.rose2, C.terra2][Math.floor(r() * 3)]; g.fillStyle = awn; poly([x + 10, 870, x + w - 10, 870, x + w, 920, x, 920], g); g.fill();
+    g.fillStyle = r() < .5 ? C.rose3 : C.teal; g.fillRect(x + 30, 940, w - 60, 140);
+    x += w + 4;
+  }
+  ctx = prev; return c; })();
+const S2_CARS = Array.from({ length: 7 }, (_, i) => { const r = mulberry32(40 + i); return { t0: i * 1.45 + r() * .5, dir: i % 2 ? 1 : -1, v: 900 + r() * 400, col: [C.teal2, C.rose2, C.ivory2, C.terra2, C.teal][i % 5], y: i % 2 ? 1700 : 1810, w: 380 + r() * 120 }; });
+const S2_CROWD = Array.from({ length: 4 }, (_, i) => { const r = mulberry32(60 + i); return { x0: i * 550 + r() * 200, v: (i % 2 ? -1 : 1) * (110 + r() * 70), y: 1470 + r() * 20, s: .7 + r() * .06, k: i }; });
+function s2sc(t) { if (t < 6) return 200 * t; if (t < 9) { const u = (t - 6) / 3; return 1200 + 3 * (200 * u - 100 * u * u); } return 1500; }
+function carX(c, t, sc) { return (c.dir > 0 ? -600 : W + 200) + c.dir * c.v * (t - c.t0) + sc * 1.0; }
+function s2(t) {
+  const sc = s2sc(t), z = ease((t - 9.0) / 1.8);
+  ctx.save(); ctx.translate(540, 960); ctx.scale(1 + z * .9, 1 + z * .9); ctx.translate(-lerp(540, 360, z), -lerp(960, 1000, z));
+  ctx.fillStyle = lin(ctx, 0, 0, 0, 760, [[0, C.ivory], [1, C.teal4]]); ctx.fillRect(-200, -200, W + 400, 1000);
+  for (let x = mod(sc * .15, 2400) - 2400; x < W; x += 2400) ctx.drawImage(FAR, x, -60);
+  const midX = mod(sc * .55 - 2365, 3200) - 3200;
+  for (let x = midX; x < W + 3200; x += 3200) ctx.drawImage(MID, x, 230);
+  // the passage's sliver of sunlight grows as he slows
+  const px = PASS_X - 2365 + sc * .55, glow = smooth(5.5, 9, t);
+  ctx.fillStyle = rgba(C.sun, .35 + .6 * glow); poly([px + 40, 1330, px + 110, 1330, px + 96, 1250, px + 56, 1250]); ctx.fill();
+  ctx.fillStyle = rgba(C.sun2, .25 + .5 * glow); ctx.fillRect(px + 70, 370, 6, 900);
+  // sidewalk + near layer
+  ctx.fillStyle = C.char2; ctx.fillRect(-200, 1330, W + 400, 280); ctx.fillStyle = C.ivory2; ctx.fillRect(-200, 1600, W + 400, 12);
+  ctx.strokeStyle = rgba(C.teal, .8); ctx.lineWidth = 3; for (let x = mod(sc, 180) - 180; x < W + 200; x += 180) { ctx.beginPath(); ctx.moveTo(x, 1330); ctx.lineTo(x - 60, 1600); ctx.stroke(); }
+  // subway entrance (railings, globe lamps) — no signage
+  const sx = 100 + sc; if (sx > -500 && sx < W + 500) {
+    ctx.fillStyle = C.ink; ctx.fillRect(sx - 160, 1360, 320, 120); ctx.fillStyle = '#1f3d44'; for (let i = 0; i < 5; i++) ctx.fillRect(sx - 150 + i * 4, 1370 + i * 22, 300 - i * 8, 10);
+    ctx.strokeStyle = C.teal; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(sx - 170, 1480); ctx.lineTo(sx - 170, 1300); ctx.lineTo(sx + 170, 1300); ctx.lineTo(sx + 170, 1480); ctx.stroke();
+    for (const lx of [sx - 170, sx + 170]) { ctx.fillStyle = C.teal; ctx.fillRect(lx - 4, 1180, 8, 120); radial(lx, 1170, 60, C.sun2, .5); ctx.fillStyle = C.sun2; ctx.beginPath(); ctx.arc(lx, 1170, 18, 0, 7); ctx.fill(); }
+    const puff = smooth(1.6, 3, t) * (1 - smooth(4.5, 6, t)); for (let i = 0; i < 6; i++) { const q = mod(t * .5 + i / 6, 1); ctx.fillStyle = rgba(C.ivory, .35 * puff * (1 - q)); ctx.beginPath(); ctx.ellipse(sx + (i - 3) * 30 + q * 40, 1360 - q * 260, 50 + q * 60, 30 + q * 30, 0, 0, 7); ctx.fill(); }
+  }
+  for (let x = mod(sc + 300, 760) - 760; x < W + 760; x += 760) { ctx.fillStyle = C.ink; ctx.fillRect(x, 940, 12, 650); ctx.fillRect(x - 30, 930, 72, 16); radial(x + 6, 950, 90, C.sun2, .35); }
+  // other people on the pavement
+  for (const p of S2_CROWD) { const x = mod(p.x0 + p.v * t + sc, 2200) - 400; passer(x, p.y, p.s, t, p.k, Math.sign(p.v)); }
+  // him: steady rhythm, then slowing; finally his head turns toward the passage
+  const v = t < 6 ? 200 : t < 9 ? 200 * (1 - (t - 6) / 3) : 0;
+  ctx.fillStyle = rgba(C.ink, .5); ctx.beginPath(); ctx.ellipse(640, 1572, 90, 12, 0, 0, 7); ctx.fill();
+  walkSide(640, 1570, 1.02, { flip: true, phase: sc / 62, walk: clamp(v / 200, 0, 1), t, look: -smooth(8.2, 9.4, t) * .15, gaze: smooth(8, 9, t) });
+  // street + traffic
+  ctx.fillStyle = C.char; ctx.fillRect(-200, 1612, W + 400, 420);
+  ctx.fillStyle = C.ivory2; for (let x = mod(sc * 1.1, 260) - 260; x < W + 260; x += 260) ctx.fillRect(x, 1760, 130, 8);
+  for (const c of S2_CARS) { const x = carX(c, t, sc); if (x < -800 || x > W + 800) continue;
+    ctx.save(); ctx.translate(x, c.y); if (c.dir < 0) ctx.scale(-1, 1);
+    ctx.fillStyle = c.col; ctx.beginPath(); ctx.roundRect(0, -110, c.w, 100, 20); ctx.fill(); ctx.beginPath(); ctx.roundRect(c.w * .2, -170, c.w * .55, 70, 18); ctx.fill();
+    ctx.fillStyle = C.teal4; ctx.fillRect(c.w * .25, -158, c.w * .2, 46); ctx.fillRect(c.w * .5, -158, c.w * .2, 46);
+    ctx.fillStyle = C.ink; for (const wx of [c.w * .2, c.w * .78]) { ctx.beginPath(); ctx.arc(wx, -10, 30, 0, 7); ctx.fill(); }
+    ctx.fillStyle = C.sun2; ctx.fillRect(c.w - 14, -90, 14, 18); ctx.restore(); }
+  shade(0, 1400, 0, 1920, C.ink, .55);
+  ctx.restore();
+  vignette(.45);
+  tone(.6);
+}
+
+/* =====================================================================
+   SCENE 3 — THE OVERLOOKED PASSAGE
+   ===================================================================== */
+const OPEN = { x: 450, y: 820, w: 180, h: 320 };
+const PASSAGE = (() => { const c = canvas(), g = c.getContext('2d'), r = mulberry32(17);
+  g.fillStyle = C.teal4; g.fillRect(380, 0, 320, 820);
+  g.fillStyle = C.char3; g.fillRect(0, 0, 380, 1500); g.fillStyle = C.char2; g.fillRect(700, 0, 380, 1500);
+  for (let y = 40; y < 1480; y += 34) { g.fillStyle = rgba(C.ink, .25); g.fillRect(0, y, 380, 3); g.fillRect(700, y, 380, 3); }
+  for (const [x0, w0] of [[40, 300], [740, 300]]) for (let y = 140; y < 1150; y += 220) { g.fillStyle = C.ink; g.fillRect(x0 + 30, y, 90, 150); g.fillRect(x0 + 180, y, 90, 150); g.fillStyle = '#1f3d44'; g.fillRect(x0 + 36, y + 6, 78, 138); g.fillRect(x0 + 186, y + 6, 78, 138); }
+  g.strokeStyle = C.ink; g.lineWidth = 5; for (let y = 300; y < 1200; y += 220) { g.beginPath(); g.moveTo(700, y); g.lineTo(1000, y); g.stroke(); g.beginPath(); g.moveTo(720, y); g.lineTo(960, y - 200); g.stroke(); }
+  g.fillStyle = C.char; poly([380, 0, 450, 820, 450, 1140, 380, 1500], g); g.fill();
+  g.fillStyle = C.ink; poly([700, 0, 630, 820, 630, 1140, 700, 1500], g); g.fill();
+  g.fillStyle = C.char2; poly([380, 1500, 700, 1500, 630, 1140, 450, 1140], g); g.fill();
+  g.fillStyle = C.char2; g.fillRect(0, 1500, W, 420); g.fillStyle = C.ivory2; g.fillRect(0, 1500, 380, 10); g.fillRect(700, 1500, 380, 10);
+  g.strokeStyle = rgba(C.teal, .8); g.lineWidth = 3; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(0, 1560 + i * 80 + i * i * 8); g.lineTo(W, 1560 + i * 80 + i * i * 8); g.stroke(); }
+  return c; })();
+const BOPEN = canvas();
+function s3man(t) {
+  if (t < 2.7) { const u = easeOut(t / 2.6); return { mode: 'side', x: lerp(1200, 780, u), y: 1840, s: 1.15, ph: (1 - Math.pow(1 - clamp(t / 2.6), 2)) * 9.6, wk: 1 - smooth(1.8, 2.6, t) }; }
+  if (t < 3.2) return { mode: 'turn', x: 780, y: 1840, s: 1.15, u: (t - 2.7) / .5 };
+  const u = clamp((t - 5.2) / 5.2), x = lerp(780, 540, ease(u)), y = lerp(1840, 1230, u), s = lerp(1.15, .42, Math.pow(u, .8));
+  return { mode: 'back', x, y, s, ph: (t - 5.2) * 4.0, wk: smooth(5.2, 5.7, t) };
+}
+function s3(t) {
+  const e = ease((t - 8.3) / 1.7), zs = lerp(1, 6, e), cy = lerp(960, OPEN.y + OPEN.h / 2, e), cx = lerp(540, OPEN.x + OPEN.w / 2, e);
+  ctx.save(); ctx.translate(540, 960); ctx.scale(zs, zs); ctx.translate(-cx, -cy);
+  ctx.drawImage(PASSAGE, 0, 0);
+  // the courtyard glimpsed at the far end
+  { const prev = ctx; ctx = BOPEN.getContext('2d'); ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); s4(t - 10); ctx.restore(); ctx = prev; }
+  ctx.save(); ctx.globalAlpha = lerp(.55, 1, smooth(5, 9, t)); ctx.drawImage(BOPEN, OPEN.x, OPEN.y, OPEN.w, OPEN.h); ctx.restore();
+  ctx.fillStyle = rgba(C.ink, .5 * (1 - e)); ctx.fillRect(OPEN.x, OPEN.y, OPEN.w, OPEN.h);
+  // sunlight falling into the passage + the drifting leaf
+  ctx.fillStyle = rgba(C.sun2, .22); poly([560, 0, 610, 0, 600, 1330, 500, 1330]); ctx.fill();
+  ctx.fillStyle = rgba(C.sun, .9); poly([478, 1320, 612, 1320, 640, 1420, 460, 1420]); ctx.fill();
+  dust(500, 300, 610, 1320, t, 10, 30, .7);
+  const lt = clamp((t - .6) / 6.5), lx = 560 + Math.sin(lt * 9) * 50, ly = lerp(380, 1395, lt); drawLeaf(lx, ly, 34, Math.sin(lt * 9) * 1.2, C.sun, C.terra);
+  // him: arriving, stopping, turning toward the passage, hesitating, then stepping in
+  const m = s3man(t), relax = 1 - smooth(4, 5, t), inLight = smooth(1330, 1400, m.y) * (1 - smooth(1430, 1500, m.y));
+  const pal = Object.assign({}, MAN, { lit: inLight > .1 ? C.sun : C.teal2 });
+  ctx.fillStyle = rgba(C.ink, .5); ctx.beginPath(); ctx.ellipse(m.x, m.y, 100 * m.s, 14 * m.s, 0, 0, 7); ctx.fill();
+  if (m.mode === 'side') walkSide(m.x, m.y, m.s, { flip: true, phase: m.ph, walk: m.wk, t, tense: 1 });
+  else if (m.mode === 'turn') turning(m.x, m.y, m.s, m.u, { flip: true, t, tense: 1, look: -.1 }, { t, tense: 1 });
+  else walkBack(m.x, m.y, m.s, { pal, phase: m.ph, walk: m.wk, t, tense: relax, turn: t < 4.5 ? Math.sin((t - 3.2) * 2.4) * .35 : 0, light: 1 });
+  ctx.restore();
+  vignette(.5);
+  tone(.6 + .4 * smooth(3, 8, t), .1 * smooth(5, 9, t));
+}
+
+/* =====================================================================
+   SCENE 4 — A HIDDEN COURTYARD
+   ===================================================================== */
+const YARD = (() => { const c = canvas(W, 2300), g = c.getContext('2d'), r = mulberry32(21), prev = ctx; ctx = g;
+  g.fillStyle = C.ivory; g.fillRect(0, 0, W, 300); radial(760, 80, 400, C.sun2, .7, g);
+  g.fillStyle = C.rose; g.fillRect(130, 200, 820, 1600);
+  for (let y = 210; y < 1790; y += 26) { g.fillStyle = rgba(C.char, .2); g.fillRect(130, y, 820, 3); for (let x = 130 + ((y / 26) % 2) * 30; x < 950; x += 60) g.fillRect(x, y, 3, 26); }
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 7; j++) { const x = 190 + i * 190, y = 260 + j * 190; if (y > 1500) continue;
+    g.fillStyle = C.ivory2; g.fillRect(x - 6, y - 6, 112, 152); g.fillStyle = r() < .12 ? C.sun : '#1f3d44'; g.fillRect(x, y, 100, 140); g.fillStyle = C.ivory2; g.fillRect(x + 47, y, 6, 140); }
+  g.fillStyle = C.terra; poly([0, 0, 130, 200, 130, 1800, 0, 2000], g); g.fill();
+  g.fillStyle = C.char2; poly([W, 0, 950, 200, 950, 1800, W, 2000], g); g.fill();
+  for (let y = 100; y < 1900; y += 34) { g.fillStyle = rgba(C.ink, .2); g.fillRect(0, y, 130, 3); g.fillRect(950, y, 130, 3); }
+  g.fillStyle = C.ivory2; poly([0, 2000, 130, 1800, 950, 1800, W, 2000, W, 2300, 0, 2300], g); g.fill();
+  g.strokeStyle = rgba(C.rose, .55); g.lineWidth = 3; for (let i = -6; i <= 6; i++) { g.beginPath(); g.moveTo(540 + i * 70, 1800); g.lineTo(540 + i * 240, 2300); g.stroke(); }
+  for (let k = 0; k < 6; k++) { const y = 1800 + Math.pow(k / 6, 1.6) * 500; g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  g.fillStyle = C.char; g.beginPath(); g.moveTo(690, 1820); g.bezierCurveTo(705, 1650, 670, 1500, 700, 1300); g.lineTo(722, 1300); g.bezierCurveTo(700, 1500, 735, 1650, 722, 1820); g.fill();
+  g.strokeStyle = C.char; g.lineWidth = 10; g.lineCap = 'round'; g.beginPath(); g.moveTo(705, 1420); g.quadraticCurveTo(640, 1340, 600, 1300); g.moveTo(712, 1380); g.quadraticCurveTo(780, 1320, 820, 1290); g.stroke();
+  ctx = prev; return c; })();
+const CANOPY = [0, 1].map(k => { const c = canvas(W, 2300), g = c.getContext('2d'), r = mulberry32(31 + k);
+  for (let i = 0; i < (k ? 16 : 20); i++) { const a = r() * Math.PI * 2, rr = Math.sqrt(r()), x = 710 + Math.cos(a) * rr * 210, y = 1230 + Math.sin(a) * rr * 130 - k * 20;
+    const lit = (x - 600) / 300 + (1250 - y) / 260 + (r() - .5) * .3; g.fillStyle = k ? (lit > .8 ? C.sun : lit > .35 ? C.teal3 : C.teal2) : (lit > .5 ? C.teal2 : C.teal);
+    g.beginPath(); g.ellipse(x, y, 48 + r() * 40, 38 + r() * 30, r() * 3, 0, 7); g.fill(); }
+  return c; });
+function bench(x, y) {
+  ctx.fillStyle = C.ink; ctx.fillRect(x + 20, y - 70, 10, 90); ctx.fillRect(x + 330, y - 70, 10, 90); ctx.fillRect(x + 10, y + 10, 14, 60); ctx.fillRect(x + 336, y + 10, 14, 60);
+  ctx.fillStyle = C.wood; for (let i = 0; i < 3; i++) ctx.fillRect(x, y - 110 + i * 26, 360, 16); ctx.fillStyle = C.wood2; ctx.fillRect(x - 6, y, 372, 18); ctx.fillStyle = C.wood; ctx.fillRect(x - 6, y + 18, 372, 10);
+}
+function s4man(t) { const u = easeOut(t / 3.2); return { x: lerp(620, 600, u), y: lerp(2560, 1990, u), s: lerp(1.5, .9, u), ph: t * 4.4, wk: 1 - smooth(2.6, 3.4, t) }; }
+function s4(t) {
+  const up = ease((t - 4.2) / 4.8) * 300;
+  ctx.save(); ctx.translate(0, -380 + up);
+  ctx.drawImage(YARD, 0, 0);
+  // sunlight on weathered brick (hard edged), moving slowly
+  const sh = t * 6;
+  ctx.fillStyle = rgba(C.terra3, .85); poly([130, 200 + sh, 620, 200 + sh, 330 + sh, 1100, 130, 1300]); ctx.fill();
+  ctx.fillStyle = rgba(C.sun, .45); poly([130, 260 + sh, 520, 260 + sh, 300 + sh, 900, 130, 1080]); ctx.fill();
+  for (let y = 210; y < 1300; y += 26) { ctx.fillStyle = rgba(C.terra, .35); ctx.fillRect(130, y, 500, 3); }
+  // bench in a patch of light, tree shadow moving across it
+  ctx.fillStyle = rgba(C.sun, .75); poly([200, 1860, 700, 1860, 760, 1980, 160, 1980]); ctx.fill();
+  bench(260, 1880);
+  ctx.save(); ctx.beginPath(); ctx.rect(150, 1740, 640, 260); ctx.clip(); ctx.fillStyle = rgba(C.char, .45);
+  for (let i = 0; i < 7; i++) { const r = mulberry32(90 + i); ctx.beginPath(); ctx.ellipse(220 + r() * 520 + Math.sin(t * .55 + i) * 40, 1780 + r() * 200, 40 + r() * 40, 16 + r() * 12, 0, 0, 7); ctx.fill(); }
+  ctx.restore();
+  for (let k = 0; k < 2; k++) { ctx.save(); ctx.translate(710, 1300); ctx.rotate(Math.sin(t * .6 + k) * .015); ctx.translate(Math.sin(t * .9 + k) * 5, 0); ctx.translate(-710, -1300); ctx.drawImage(CANOPY[k], 0, 0); ctx.restore(); }
+  for (let i = 0; i < 5; i++) { const q = mod(t * .12 + i * .2, 1); drawLeaf(640 + Math.sin(q * 12 + i) * 120, 1300 + q * 640, 22, q * 8, i % 2 ? C.sun : C.teal3); }
+  dust(200, 1300, 700, 1980, t, 18, 50, .9);
+  // him: walks in, pauses, looks up
+  const m = s4man(t);
+  ctx.fillStyle = rgba(C.ink, .45); ctx.beginPath(); ctx.ellipse(m.x, m.y, 100 * m.s, 14 * m.s, 0, 0, 7); ctx.fill();
+  walkBack(m.x, m.y, m.s, { phase: m.ph, walk: m.wk, t, look: smooth(3.8, 5.6, t), light: -1 });
+  ctx.restore();
+  vignette(.45);
+  tone(.92 + .08 * smooth(2, 8, t), .16 * smooth(2, 8, t));
+}
+
+/* =====================================================================
+   SCENE 5 — SOMETHING BETWEEN THE PAGES
+   ===================================================================== */
+const STALL = (() => { const c = canvas(), g = c.getContext('2d'), r = mulberry32(55);
+  g.fillStyle = C.teal; g.fillRect(0, 0, W, 640);
+  g.filter = 'blur(6px)';
+  for (let row = 0; row < 3; row++) { let x = -20; const y = 60 + row * 190; g.fillStyle = C.wood; g.fillRect(0, y + 150, W, 22);
+    while (x < W) { const w = 26 + r() * 40, h = 110 + r() * 40; g.fillStyle = [C.rose, C.terra2, C.teal3, C.ivory2, C.char3, C.rose3][Math.floor(r() * 6)]; g.fillRect(x, y + 150 - h, w, h); g.fillStyle = rgba(C.ink, .25); g.fillRect(x + w * .2, y + 150 - h + 14, w * .6, 6); x += w + 3; } }
+  g.filter = 'none';
+  g.fillStyle = C.wood; g.fillRect(0, 640, W, 1280); g.fillStyle = C.wood2; for (let y = 700; y < 1920; y += 120) g.fillRect(0, y, W, 6);
+  g.fillStyle = lin(g, 0, 1400, 0, 1920, [[0, rgba(C.ink, 0)], [1, rgba(C.ink, .7)]]); g.fillRect(0, 1400, W, 520);
+  return c; })();
+function noteShape(t, lift, sway) {
+  ctx.save(); ctx.translate(690 + sway * 8, 1000 - lift * 150); ctx.rotate(-.18 + sway * .05 - lift * .2); ctx.scale(1 + lift * .22, 1 + lift * .22);
+  ctx.fillStyle = rgba(C.ink, .3 * (1 - lift * .3)); ctx.fillRect(-120 + lift * 30, -70 + lift * 50, 240, 150);
+  ctx.fillStyle = C.ivory; ctx.fillRect(-120, -80, 240, 150); ctx.fillStyle = C.ivory2; ctx.fillRect(-120, 60, 240, 10);
+  ctx.strokeStyle = rgba(C.teal, .75); ctx.lineWidth = 3; ctx.lineCap = 'round';
+  const r = mulberry32(5); for (let l = 0; l < 4; l++) { ctx.beginPath(); let x = -96; ctx.moveTo(x, -46 + l * 30); while (x < 80 - (l === 3 ? 80 : 0)) { x += 8 + r() * 10; ctx.lineTo(x, -46 + l * 30 + (r() - .5) * 9); } ctx.stroke(); }
+  ctx.restore();
+}
+function s5(t) {
+  ctx.drawImage(STALL, 0, 0);
+  ctx.save(); ctx.translate(Math.sin(t * .3) * 6, 0);
+  // weathered book
+  ctx.fillStyle = rgba(C.ink, .4); ctx.beginPath(); ctx.roundRect(150, 770, 800, 560, 14); ctx.fill();
+  ctx.fillStyle = C.char2; ctx.beginPath(); ctx.roundRect(120, 740, 840, 560, 14); ctx.fill();
+  const page = (x0, x1, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x0, 770); ctx.quadraticCurveTo((x0 + x1) / 2, 752, x1, 772); ctx.lineTo(x1, 1280); ctx.quadraticCurveTo((x0 + x1) / 2, 1264, x0, 1276); ctx.closePath(); ctx.fill(); };
+  page(150, 540, C.ivory2); page(540, 930, C.ivory2);
+  ctx.fillStyle = rgba(C.rose3, .8); ctx.fillRect(150, 1180, 380, 90); ctx.fillStyle = C.rose3; ctx.fillRect(500, 770, 80, 510);
+  ctx.fillStyle = rgba(C.rose, .6); for (let i = 0; i < 13; i++) { const y = 820 + i * 34; ctx.fillRect(190, y, 300 - (i % 4) * 12, 3); ctx.fillRect(590, y, 300 - (i % 3) * 14, 3); }
+  // the note between the pages
+  const sway = Math.sin(t * 2.2) * smooth(1.8, 2.6, t) * (1 - smooth(3.6, 4.6, t)), lift = ease((t - 6.2) / 2.2);
+  if (lift < .02) noteShape(t, 0, sway);
+  // pages turning (starts mid-turn, matching the leaf)
+  for (const [t0, d] of [[-.6, 1.4], [.5, 1.6]]) { const q = clamp((t - t0) / d); if (q <= 0 || q >= 1) continue;
+    const th = Math.PI * ease(q), w = 390 * Math.cos(th), ox = 540 + w, lf = Math.sin(th);
+    ctx.fillStyle = rgba(C.ink, .25 * lf); ctx.fillRect(Math.min(540, ox) - 30 * lf, 770, Math.abs(w) + 60 * lf, 510);
+    ctx.fillStyle = w > 0 ? C.ivory : C.ivory2; ctx.beginPath(); ctx.moveTo(540, 770); ctx.quadraticCurveTo(540 + w * .6, 760 - 80 * lf, ox, 770 - 70 * lf); ctx.lineTo(ox, 1280 - 30 * lf); ctx.quadraticCurveTo(540 + w * .6, 1275 - 20 * lf, 540, 1280); ctx.closePath(); ctx.fill(); }
+  // sleeves and hands (from the sides, leaving the lower frame clear)
+  const handPal = MAN;
+  const reach = smooth(2.8, 4.6, t), pinch = smooth(5.4, 6.2, t);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = C.teal2; ctx.lineWidth = 120; ctx.beginPath(); ctx.moveTo(-120, 1460); ctx.lineTo(200, 1230); ctx.stroke();
+  ctx.strokeStyle = handPal.coat; ctx.lineWidth = 120; ctx.beginPath(); ctx.moveTo(-130, 1476); ctx.lineTo(190, 1244); ctx.stroke();
+  ctx.fillStyle = C.skin; ctx.beginPath(); ctx.ellipse(232, 1206, 54, 40, -.6, 0, 7); ctx.fill(); for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(262 + i * 10, 1150 + i * 14, 12, 28, -.6, 0, 7); ctx.fill(); }
+  const hx = lerp(1000, 760, reach) + Math.sin(t * 1.3) * 4 * (1 - pinch), hy = lerp(1180, 1050, reach) - lift * 150;
+  ctx.strokeStyle = C.teal2; ctx.lineWidth = 120; ctx.beginPath(); ctx.moveTo(1240, 1420); ctx.lineTo(hx + 80, hy + 60); ctx.stroke();
+  ctx.strokeStyle = handPal.coat; ctx.lineWidth = 120; ctx.beginPath(); ctx.moveTo(1252, 1436); ctx.lineTo(hx + 92, hy + 76); ctx.stroke();
+  if (lift >= .02) noteShape(t, lift, 0);
+  ctx.fillStyle = C.skinS; ctx.beginPath(); ctx.ellipse(hx + 30, hy + 10, 50, 38, .5, 0, 7); ctx.fill();
+  ctx.fillStyle = C.skin; ctx.beginPath(); ctx.ellipse(hx + 24, hy - 2, 40, 26, .5, 0, 7); ctx.fill();
+  const fo = lerp(0, 1, pinch); ctx.beginPath(); ctx.ellipse(hx - 30 + fo * 18, hy - 30 + fo * 16, 30, 10, .3, 0, 7); ctx.fill(); ctx.beginPath(); ctx.ellipse(hx - 18 + fo * 6, hy + 14 - fo * 10, 24, 9, -.4, 0, 7); ctx.fill();
+  ctx.restore();
+  // his head above, tilting with attention (in shadow, rim-lit)
+  ctx.save(); ctx.translate(960, 470); ctx.rotate(-.34 - smooth(3, 5, t) * .14); ctx.scale(-2.2, 2.2);
+  rim(new Path2D('M-70 40 Q-60 -6 0 -4 Q60 -6 70 40 L80 120 L-80 120 Z'), C.coat, C.teal2, -10, 0);
+  headSide({ look: 0, blink: t > 4.1 && t < 4.22, gaze: 1 }, MAN, -1);
+  ctx.restore();
+  // the book closing at the end: its dark cover sweeps across and fills the frame
+  const cl = ease((t - 8.6) / 1.4);
+  if (cl > 0) { ctx.save(); const w = 840 * Math.cos(Math.PI * (1 - cl) * .999); ctx.fillStyle = C.char; ctx.fillRect(Math.min(540, 540 + w) - 40, 700, Math.abs(w) + 80, 640);
+    ctx.fillStyle = rgba(C.ink, cl); ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  vignette(.45);
+  tone(.95, .12);
+}
+
+/* =====================================================================
+   SCENE 6 — THE SAME CITY, SEEN AGAIN
+   ===================================================================== */
+function reflection(t) {
+  ctx.fillStyle = lin(ctx, 0, 0, 0, H, [[0, '#1f2a30'], [1, C.ink]]); ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.globalAlpha = .45; const off = t * 30;
+  for (let i = -1; i < 6; i++) { const x = mod(i * 260 - off, 1560) - 240, h = 700 + (i % 3) * 180; ctx.fillStyle = i % 2 ? C.teal2 : C.rose; ctx.fillRect(x, 1500 - h, 200, h);
+    ctx.fillStyle = rgba(C.ivory, .4); for (let y = 1500 - h + 40; y < 1400; y += 90) ctx.fillRect(x + 30, y, 140, 30); }
+  ctx.restore();
+  ctx.save(); ctx.globalAlpha = .35; for (let k = 0; k < 4; k++) passer(mod(1300 - t * (160 + k * 50) - k * 400, 1700) - 300, 1650 + k * 40, .9 + k * .1, t, k, -1); ctx.restore();
+  const turn = smooth(2.6, 3.4, t);
+  ctx.save(); ctx.globalAlpha = .55 * (1 - turn * .7); ctx.translate(560, 1180); ctx.scale(-3.4 * (1 - turn * .9), 3.4);
+  const ghost = { coat: C.teal3, coatD: C.teal2, lit: C.ivory, trou: C.teal2, shoe: C.teal2, skin: C.rose3, skinS: C.rose2, hair: C.teal2 };
+  ctx.fillStyle = ghost.coat; ctx.fill(new Path2D('M-90 40 Q-80 -6 0 -4 Q80 -6 90 40 L120 320 L-120 320 Z'));
+  headSide({ blink: t > 1.8 && t < 1.92, gaze: .5 }, ghost, 1);
+  ctx.restore();
+  ctx.fillStyle = rgba(C.sun2, .25); poly([0, 300, 140, 300, 900, 1920, 760, 1920]); ctx.fill();
+  ctx.fillStyle = C.terra; ctx.fillRect(0, 0, 40, H); ctx.fillRect(W - 40, 0, 40, H);
+}
+function streetAgain(t) {
+  const VPX = 540, VPY = 980;
+  ctx.fillStyle = C.ivory; ctx.fillRect(0, 0, W, H); radial(560, 500, 500, C.sun2, .5);
+  ctx.fillStyle = C.rose; poly([0, 0, 430, 640, 430, 1040, 0, 1680]); ctx.fill();
+  ctx.fillStyle = C.char3; poly([W, 0, 650, 640, 650, 1040, W, 1680]); ctx.fill();
+  const win = (nearX, farX, side) => { for (let i = 0; i < 7; i++) { const u0 = 1 - Math.pow(.72, i), u1 = 1 - Math.pow(.72, i + .6);
+      const x0 = lerp(nearX, farX, u0), x1 = lerp(nearX, farX, u1); for (let j = 0; j < 4; j++) { const yt = (u) => lerp(120 + j * 340, 640 + j * 100, u), yb = (u) => lerp(380 + j * 340, 700 + j * 100 + 30, u);
+        if (yb(u0) > lerp(1680, 1040, u0) - 60) continue; ctx.fillStyle = side ? '#1f3d44' : C.teal; poly([x0, yt(u0), x1, yt(u1), x1, yb(u1), x0, yb(u0)]); ctx.fill(); } } };
+  win(20, 430, 0); win(W - 20, 650, 1);
+  const glint = Math.max(0, 1 - Math.abs(t - 6.6) * 2.2); if (glint > 0) { ctx.fillStyle = rgba(C.sun2, glint); ctx.fillRect(110, 520, 90, 180); radial(155, 600, 140, C.sun2, .8 * glint); }
+  // café on the right: awning, warm window, steam from the door
+  ctx.fillStyle = C.terra; poly([W, 1080, 820, 1150, 820, 1460, W, 1760]); ctx.fill();
+  ctx.fillStyle = C.terra2; poly([W, 1120, 850, 1180, 850, 1420, W, 1640]); ctx.fill();
+  ctx.fillStyle = C.sun; poly([1040, 1200, 880, 1230, 880, 1400, 1040, 1520]); ctx.fill();
+  ctx.fillStyle = C.rose2; poly([W, 980, 790, 1080, 800, 1140, W, 1070]); ctx.fill();
+  for (let i = 0; i < 5; i++) { const q = mod(t * .35 + i / 5, 1); ctx.fillStyle = rgba(C.ivory, .55 * (1 - q)); ctx.beginPath(); ctx.ellipse(860 - q * 120, 1330 - q * 300, 40 + q * 50, 26 + q * 30, 0, 0, 7); ctx.fill(); }
+  // pavement receding, with sunlight drifting across it
+  ctx.fillStyle = C.char2; poly([0, 1680, 430, 1040, 650, 1040, W, 1680, W, H, 0, H]); ctx.fill();
+  ctx.strokeStyle = rgba(C.teal, .8); ctx.lineWidth = 3;
+  for (let i = -5; i <= 5; i++) { ctx.beginPath(); ctx.moveTo(VPX + i * 22, 1040); ctx.lineTo(VPX + i * 230, H); ctx.stroke(); }
+  for (let k = 0; k < 8; k++) { const y = 1040 + Math.pow(k / 8, 1.8) * 880; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  const sl = t * 22; ctx.fillStyle = rgba(C.sun, .8);
+  for (let i = 0; i < 3; i++) { const y0 = 1240 + i * 220; ctx.beginPath(); ctx.moveTo(-200 + sl + i * 60, y0); ctx.lineTo(500 + sl + i * 80, y0 - 60); ctx.lineTo(560 + sl + i * 90, y0 + 40 + i * 30); ctx.lineTo(-140 + sl + i * 60, y0 + 110 + i * 30); ctx.closePath(); ctx.fill(); }
+  drawLeaf(230 + Math.sin(t * 1.5) * 6, 1700, 60, -.4 + Math.sin(t * 1.8) * .15, C.sun, C.terra);
+  passer(470 + Math.sin(t * .3) * 10, 1090, .2, t, 1, 1); passer(610, 1100, .22, t, 3, -1);
+  shade(0, 1300, 0, 1920, C.ink, .45);
+}
+function s6man(t) { const u = clamp((t - 4.2) / 6.4); return { x: lerp(560, 545, u), y: lerp(2120, 1240, Math.pow(u, .9)), s: lerp(1.6, .5, Math.pow(u, .8)), ph: (t - 4.2) * 4.2, wk: 1 }; }
+function s6(t) {
+  const m = smooth(3.4, 4.4, t);
+  if (m < 1) reflection(t);
+  if (m > 0) { ctx.save(); ctx.globalAlpha = m; streetAgain(t);
+    const h = s6man(t), turn = Math.sin(clamp((t - 5.1) / 1.4) * Math.PI) * .8 - Math.sin(clamp((t - 7.0) / 1.4) * Math.PI) * .8;
+    ctx.fillStyle = rgba(C.ink, .45); ctx.beginPath(); ctx.ellipse(h.x, h.y, 100 * h.s, 14 * h.s, 0, 0, 7); ctx.fill();
+    walkBack(h.x, h.y, h.s, { phase: h.ph, walk: h.wk, t, turn, look: .1, light: -1 }); ctx.restore(); }
+  vignette(.45);
+  tone(1, .14 * smooth(4, 9, t));
+  const end = smooth(10, 11.4, t); if (end > 0) { ctx.fillStyle = rgba(C.ink, end); ctx.fillRect(0, 0, W, H); radial(540, 900, 900, C.char2, .9 * end); }
+}
+
+/* =====================================================================
+   TIMELINE, TEXT & TRANSITIONS
+   ===================================================================== */
+const SC = [
+  { start: 0, dur: 10, fn: s1, y: 330, beats: [['كل صباح، نعبر الشوارع نفسها،', 1.0, 3.9], ['ونمرّ بالوجوه والنوافذ،', 4.1, 6.3], ['حتى نظن أننا نعرف كل ما حولنا.', 6.5, 9.4]] },
+  { start: 10, dur: 10, fn: s2, y: 250, dark: true, beats: [['لكن، هل عرفناها حقًّا؟', 1.0, 3.4], ['أم أن كثرة رؤيتها', 3.8, 5.9], ['جعلتنا نمرّ بها دون أن نراها؟', 6.0, 9.3]] },
+  { start: 20, dur: 10, fn: s3, y: 300, beats: [['قد يكفي أن نبطئ قليلًا؛', 1.0, 3.4], ['لنلمح ممرًّا صغيرًا،', 3.7, 5.9], ['كان هناك دائمًا، ولم نمنحه نظرة.', 6.1, 8.9]] },
+  { start: 30, dur: 10, fn: s4, y: 1660, beats: [['وخلف ضجيج المدينة،', 1.0, 3.1], ['نجد سكونًا لم نتوقّعه،', 3.3, 5.4], ['وشجرةً تكبر بصمت،', 5.6, 7.5], ['وضوءًا يستقرّ على مقعد قديم.', 7.7, 9.6]] },
+  { start: 40, dur: 10, fn: s5, y: 1640, beats: [['حتى كتابٌ قديم،', 1.0, 3.0], ['قد يخبّئ بين صفحاته أثرًا لإنسان لا نعرفه،', 3.2, 6.4], ['ويوقظ فينا سؤالًا جديدًا.', 6.6, 9.2]] },
+  { start: 50, dur: 15, fn: s6, y: 1690, beats: [['ربما لم تتغيّر المدينة.', 1.0, 3.0], ['نحن فقط منحناها انتباهنا،', 3.2, 5.4], ['فاكتشفنا أن وراء المألوف', 5.6, 7.6], ['حياةً لم نرها بعد.', 7.8, 10.2], ['ما وراء المألوف', 11.6, 1e9, 960, 92]] },
+];
+const TOTAL = 65;
+const TR = [
+  { a: 9.3, z: 10.7, to: 1, type: 'passer' },
+  { a: 19.6, z: 20.5, to: 2, type: 'fade' },
+  { a: 39.4, z: 40.6, to: 4, type: 'leaf' },
+  { a: 49.7, z: 50.4, to: 5, type: 'fade' },
+];
+const FONT = '"Noto Naskh Arabic", "Amiri", "FreeSerif", "Geeza Pro", "Times New Roman", serif';
+function lines(str, max) {
+  if (ctx.measureText(str).width <= max) return [str];
+  const words = str.split(' '); let best = null, bw = 1e9;
+  for (let i = 1; i < words.length; i++) { const a = words.slice(0, i).join(' '), b = words.slice(i).join(' '), m = Math.max(ctx.measureText(a).width, ctx.measureText(b).width); if (m < bw) { bw = m; best = [a, b]; } }
+  return best;
+}
+function phrase(str, a, rise, y, size = 58, dark = false) {
+  if (a <= 0) return;
+  ctx.save(); ctx.font = `500 ${size}px ${FONT}`; ctx.direction = 'rtl'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const ls = lines(str, 860), lh = size * 1.75, y0 = y - (ls.length - 1) * lh / 2 + rise;
+  ctx.globalAlpha = a; ctx.save(); ctx.translate(W / 2, y + rise); ctx.scale(1, .2 + .14 * ls.length);
+  ctx.fillStyle = (() => { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 560); const sc = dark ? C.ivory : C.ink; g.addColorStop(0, rgba(sc, dark ? .6 : .7)); g.addColorStop(.62, rgba(sc, dark ? .35 : .45)); g.addColorStop(1, rgba(sc, 0)); return g; })();
+  ctx.fillRect(-560, -560, 1120, 1120); ctx.restore();
+  ctx.fillStyle = dark ? C.ink : C.ivory; ctx.shadowColor = dark ? rgba(C.ivory, .9) : rgba(C.ink, .8); ctx.shadowBlur = 14; ctx.shadowOffsetY = dark ? 0 : 2;
+  ls.forEach((l, i) => ctx.fillText(l, W / 2, y0 + i * lh));
+  if (size > 70) { ctx.shadowColor = 'transparent'; ctx.fillStyle = C.sun; const w = Math.min(ctx.measureText(str).width, 600) * a; ctx.fillRect(W / 2 - w / 2, y + rise + 88, w, 3); }
+  ctx.restore();
+}
+function drawTexts(T) {
+  for (const S of SC) { const t = T - S.start; if (t < -1 || (t > S.dur + 1 && S !== SC[SC.length - 1])) continue;
+    for (const [str, t0, t1, yy, size] of S.beats) { const a = smooth(t0, t0 + .5, t) * (1 - smooth(t1 - .35, t1, t)); phrase(str, a, (1 - easeOut((t - t0) / .5)) * 22, yy || S.y, size || 58, !!S.dark && !size); } }
+}
+const BA = canvas(), BB = canvas();
+function renderInto(c, i, t) { const prev = ctx; ctx = c.getContext('2d'); ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none'; SC[i].fn(t); ctx.restore(); ctx = prev; }
+function sceneAt(T) { for (let i = SC.length - 1; i >= 0; i--) if (T >= SC[i].start) return i; return 0; }
+function renderFrame(T) {
+  ctx = SRCX; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
+  const tr = TR.find(r => T >= r.a && T < r.z);
+  if (!tr) { const i = sceneAt(T); ctx.save(); SC[i].fn(T - SC[i].start); ctx.restore(); }
+  else {
+    const A = tr.to - 1, B = tr.to, q = (T - tr.a) / (tr.z - tr.a);
+    renderInto(BA, A, T - SC[A].start); renderInto(BB, B, T - SC[B].start);
+    ctx.drawImage(BA, 0, 0);
+    if (tr.type === 'fade') { ctx.save(); ctx.globalAlpha = ease(q); ctx.drawImage(BB, 0, 0); ctx.restore(); }
+    else if (tr.type === 'passer') {          // a pedestrian fills the foreground and wipes to the street
+      const x = lerp(W + 520, -560, q); ctx.save(); ctx.beginPath(); ctx.rect(x, 0, W * 2, H); ctx.clip(); ctx.drawImage(BB, 0, 0); ctx.restore();
+      walkBack(x, H + 1500, 4.2, { pal: Object.assign({}, MAN, { coat: C.ink, coatD: C.ink, lit: C.teal, trou: C.ink, skin: C.ink, skinS: C.ink, hair: C.ink }), sil: true, phase: q * 6, walk: 1, light: 1 });
+    } else if (tr.type === 'leaf') {          // a leaf sweeps across and becomes a turning page
+      const d = [-.58, .81], n = [d[1], -d[0]], cx = lerp(1300, -300, q), cy = lerp(-400, 2300, q);
+      ctx.save(); poly([cx + n[0] * 3000, cy + n[1] * 3000, cx + n[0] * 3000 - d[0] * 4000, cy + n[1] * 3000 - d[1] * 4000, cx - n[0] * 3000 - d[0] * 4000, cy - n[1] * 3000 - d[1] * 4000, cx - n[0] * 3000, cy - n[1] * 3000]); ctx.clip(); ctx.drawImage(BB, 0, 0); ctx.restore();
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.atan2(n[1], n[0]) + q * .6); drawLeaf(0, 0, 1700, 0, C.teal, C.teal3, .55); ctx.restore();
+    }
+  }
+  ctx = MAIN; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  if (PRINT) { PRINT.render(SRC, T); ctx.drawImage(PRINT.canvas, 0, 0); } else ctx.drawImage(SRC, 0, 0);
+  drawTexts(T);
+}
+
+/* ---------------- print pass: snap to the palette, stipple the in-betweens ---------------- */
+const PRINT = (() => {
+  const c = canvas(); const gl = c.getContext('webgl2', { preserveDrawingBuffer: true }); if (!gl) return null;
+  const vs = `#version 300 es
+  in vec2 p; out vec2 uv; void main(){ uv = p*.5+.5; uv.y = 1.-uv.y; gl_Position = vec4(p,0,1); }`;
+  const fs = `#version 300 es
+  precision highp float; in vec2 uv; out vec4 o; uniform sampler2D src; uniform vec3 pal[${INKS.length}]; uniform float seed;
+  float hash(vec2 p){ p = fract(p*vec2(443.897,441.423)); p += dot(p, p.yx+19.19); return fract((p.x+p.y)*p.x); }
+  void main(){ vec3 c = texture(src, uv).rgb; float d1 = 1e9, d2 = 1e9; vec3 a = c, b = c;
+    for (int i = 0; i < ${INKS.length}; i++) { vec3 e = c - pal[i]; float d = dot(e, e * vec3(.9,1.2,.7)); if (d < d1) { d2 = d1; b = a; d1 = d; a = pal[i]; } else if (d < d2) { d2 = d; b = pal[i]; } }
+    float t = sqrt(d1) / (sqrt(d1) + sqrt(d2) + 1e-5); float n = hash(floor(gl_FragCoord.xy / 1.6) + seed); o = vec4(n < t ? b : a, 1.); }`;
+  const mk = (ty, s) => { const sh = gl.createShader(ty); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
+  let prog; try { prog = gl.createProgram(); gl.attachShader(prog, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, mk(gl.FRAGMENT_SHADER, fs)); gl.bindAttribLocation(prog, 0, 'p'); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog)); } catch (e) { console.warn('print pass disabled', e); return null; }
+  gl.useProgram(prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform3fv(gl.getUniformLocation(prog, 'pal'), new Float32Array(INKS.flatMap(h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; })));
+  const uSeed = gl.getUniformLocation(prog, 'seed'), tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  return { canvas: c, render(source, T) { gl.viewport(0, 0, W, H); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); gl.uniform1f(uSeed, (Math.floor(T * 8) % 4) * 7.13); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); } };
+})();
+
+/* ---------------- sound cues (footsteps, cars, pages) for the soundtrack builder ---------------- */
+function manAt(T) {
+  const i = sceneAt(T), t = T - SC[i].start;
+  if (i === 1) { const sc = s2sc(t); return { ph: sc / 62, wk: t < 6 ? 1 : t < 9 ? 1 - (t - 6) / 3 : 0 }; }
+  if (i === 2) { const m = s3man(t); return m.mode === 'turn' ? { ph: 0, wk: 0 } : { ph: m.ph, wk: m.wk }; }
+  if (i === 3) { const m = s4man(t); return { ph: m.ph, wk: m.wk }; }
+  if (i === 5 && t > 4.2 && t < 10.6) { const m = s6man(t); return { ph: m.ph, wk: 1, far: (t - 4.2) / 6.4 }; }
+  return { ph: 0, wk: 0 };
+}
+window.__events = () => {
+  const ev = []; let last = null;
+  for (let T = 0; T < TOTAL; T += 1 / 240) { const m = manAt(T); const k = Math.floor(m.ph / Math.PI);
+    if (last && m.wk > .2 && k !== last.k && sceneAt(T) === last.i) ev.push({ t: +T.toFixed(3), type: 'step', g: m.wk * (m.far !== undefined ? 1 - m.far * .7 : 1), scene: sceneAt(T) });
+    last = { k, i: sceneAt(T) }; }
+  for (const c of S2_CARS) for (let t = 0; t < 10; t += 1 / 120) { const a = carX(c, t, s2sc(t)) + c.w / 2, b = carX(c, t + 1 / 120, s2sc(t + 1 / 120)) + c.w / 2; if ((a - 540) * (b - 540) <= 0) ev.push({ t: +(10 + t).toFixed(3), type: 'car', dir: c.dir, near: c.y > 1750 ? 1 : .7 }); }
+  ev.push({ t: 40.0, type: 'page' }, { t: 40.6, type: 'page' }, { t: 46.3, type: 'note' }, { t: 48.7, type: 'close' });
+  return ev;
+};
+
+/* =====================================================================
+   PLAYER
+   ===================================================================== */
+const stage = document.getElementById('stage'), controls = document.getElementById('controls');
+const pp = document.getElementById('pp'), rp = document.getElementById('rp'), snd = document.getElementById('snd'), bar = document.getElementById('bar'), fill = document.getElementById('fill'), timeEl = document.getElementById('time');
+const amb = document.getElementById('amb'), vo = document.getElementById('vo'); let voOK = false; vo.addEventListener('canplay', () => voOK = true); vo.addEventListener('error', () => voOK = false);
+function layout() { const aw = innerWidth - 32, ah = innerHeight - 24 - 52, w = Math.max(160, Math.min(aw, ah * 9 / 16)); stage.style.width = w + 'px'; stage.style.height = (w * 16 / 9) + 'px'; controls.style.width = Math.max(w, Math.min(aw, 340)) + 'px'; }
+addEventListener('resize', layout); layout();
+const CAPTURE = new URLSearchParams(location.search).has('capture');
+let T = 0, playing = false, ended = false, last = 0, ambient = 0, ready = false, sound = false;
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function syncAudio(force) {
+  for (const a of [amb, voOK ? vo : null]) { if (!a) continue;
+    if (!sound || !playing || ended) { if (!a.paused) a.pause(); continue; }
+    if (force || Math.abs(a.currentTime - T) > .25) { try { a.currentTime = T; } catch (e) {} }
+    if (a.paused) a.play().catch(() => {}); }
+}
+function setPlaying(p) { playing = p; pp.textContent = p ? '❚❚' : '▶'; pp.setAttribute('aria-label', p ? 'إيقاف مؤقت' : 'تشغيل'); syncAudio(true); }
+function tick(now) {
+  const dt = Math.min(.1, (now - last) / 1000 || 0); last = now;
+  if (ready && !CAPTURE) {
+    if (playing) { if (!ended) { T += dt; if (T >= TOTAL) { T = TOTAL; ended = true; syncAudio(); } } else ambient += dt; }
+    renderFrame(ended ? TOTAL - .001 + ambient : T); syncAudio(false);
+    fill.style.width = (Math.min(T, TOTAL) / TOTAL * 100) + '%'; timeEl.textContent = `${fmt(Math.min(T, TOTAL))} / ${fmt(TOTAL)}`;
+  }
+  requestAnimationFrame(tick);
+}
+function replay() { T = 0; ended = false; ambient = 0; setPlaying(true); }
+pp.addEventListener('click', () => { if (ended && !playing) { replay(); return; } setPlaying(!playing); });
+rp.addEventListener('click', replay);
+snd.addEventListener('click', () => { sound = !sound; snd.setAttribute('aria-pressed', String(sound)); syncAudio(true); });
+addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); pp.click(); } if (e.key === 'm') snd.click(); });
+function seek(x) { const r = bar.getBoundingClientRect(); T = clamp((x - r.left) / r.width) * TOTAL; ended = T >= TOTAL; ambient = 0; syncAudio(true); }
+bar.addEventListener('pointerdown', e => { bar.setPointerCapture(e.pointerId); seek(e.clientX); });
+bar.addEventListener('pointermove', e => { if (e.buttons) seek(e.clientX); });
+window.__frame = (t, type = 'image/jpeg') => { renderFrame(t); return art.toDataURL(type, .93); };
+window.__TOTAL = TOTAL;
+const q = new URLSearchParams(location.search);
+
+Promise.race([Promise.all([document.fonts.load(`500 58px "Noto Naskh Arabic"`, 'ما وراء'), document.fonts.load(`400 58px FreeSerif`, 'ما')]).catch(() => {}), new Promise(r => setTimeout(r, 3500))]).then(() => {
+  ready = true; document.getElementById('loading').remove(); window.__ready = true; if (q.has('t')) T = +q.get('t'); if (!q.has('capture')) setPlaying(true);
+});
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
