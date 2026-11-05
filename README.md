@@ -13,3 +13,6 @@ Open `rainy-day/index.html` in a browser.
 6. **In bed**: rain on the window, a blanket that breathes, the lamp dims. *goodnight.*
 
 Controls: **space** plays or pauses, **m** turns the sound on or off (rain noise plus soft notes, made in the browser and muffled indoors), and clicking the bar jumps to a point.
+
+**Video:** `rainy-day/rainy-day.mp4` is a 66-second 1080p 30fps video with rain sound. To render it again, run
+`node rainy-day/tools/record.js` (needs Playwright and ffmpeg).
