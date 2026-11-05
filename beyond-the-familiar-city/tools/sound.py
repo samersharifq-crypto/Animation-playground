@@ -86,8 +86,8 @@ lv = env([(20, 0), (21, .25), (29.5, .35), (31, .9), (39.5, .9), (40.5, .1), (54
 gust = band(noise(N), .05, .6, 1)
 gust = (gust - gust.min()) / (gust.max() - gust.min())
 leaves = band(noise(N), 2200, 9000) * gust ** 2
-out[0] += leaves * lv * .22
-out[1] += np.roll(leaves, 4000) * lv * .22
+out[0] += leaves * lv * .11
+out[1] += np.roll(leaves, 4000) * lv * .11
 
 # --- footsteps synced to the walk cycle ---
 def step_sound(bright=1.0):
