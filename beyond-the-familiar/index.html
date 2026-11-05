@@ -49,6 +49,8 @@
 const W = 1080, H = 1920;
 const art = document.getElementById('art');
 const MAIN = art.getContext('2d');
+const SRC = document.createElement('canvas'); SRC.width = W; SRC.height = H;   // scenes draw here; the print pass maps them onto the palette
+const SRCX = SRC.getContext('2d');
 let ctx = MAIN;
 
 /* ---------------- palette ---------------- */
@@ -92,6 +94,7 @@ function vignette(a, c = ctx) {
 function tone(sat, warm = 0) {         // per-scene mood: saturation and warmth
   ctx.save();
   if (sat < 1) { ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = `rgba(128,128,128,${1 - sat})`; ctx.fillRect(0, 0, W, H); }
+  if (sat < .5) { ctx.globalCompositeOperation = 'color'; ctx.fillStyle = `rgba(70,86,104,${(.5 - sat) * .5})`; ctx.fillRect(0, 0, W, H); }   // cool, cinematic monochrome
   if (warm > 0) { ctx.globalCompositeOperation = 'soft-light'; ctx.fillStyle = rgba(C.gold, warm); ctx.fillRect(0, 0, W, H); }
   ctx.restore();
 }
@@ -149,7 +152,7 @@ function headProfile(look = 0, side = 1) {
   ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(34, -120); ctx.lineTo(52, -118); ctx.stroke();
   ctx.restore();
 }
-let THL = C.cream, THB = C.thS, THD = C.thD;      // thobe: lit / base / deep
+let THL = C.cream, THB = '#8b929b', THD = '#5c6470';      // thobe: lit / base / deep
 function chair(x, y, col = C.ink) {
   ctx.save(); ctx.strokeStyle = col; ctx.lineCap = 'round';
   ctx.lineWidth = 11; ctx.beginPath(); ctx.moveTo(x - 40, y + 6); ctx.quadraticCurveTo(x - 70, y - 160, x - 30, y - 280); ctx.quadraticCurveTo(x + 20, y - 330, x + 60, y - 260); ctx.stroke();
@@ -210,10 +213,10 @@ function walkerProfile(x, y, s, o = {}) {
   ctx.rotate(o.lean || 0);
   const body = new Path2D(); body.moveTo(-30, -470); body.quadraticCurveTo(-52, -440, -50, -380); body.quadraticCurveTo(-54, -200, -60 - sw * 9, -22);
   body.quadraticCurveTo(0, -12, 64 + sw * 11, -20); body.quadraticCurveTo(54, -200, 46, -330); body.quadraticCurveTo(48, -420, 30, -470); body.quadraticCurveTo(0, -478, -30, -470); body.closePath();
-  rim(body, THB, THL, 20 * L, 4);
+  rim(body, THB, THL, 26 * L, 4);
   shadeIn(body, 0, -260, 0, -10, THD, .65);
   ctx.strokeStyle = rgba(THD, .7); ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-8, -300); ctx.quadraticCurveTo(-14, -150, -24 + sw * 8, -24); ctx.moveTo(30, -440); ctx.lineTo(32, -330); ctx.stroke();
-  ctx.save(); ctx.translate(2, -470); ctx.scale(.5, .5); headProfile(o.look || 0, L); ctx.restore();
+  ctx.save(); ctx.translate(2, -470); ctx.scale(.44, .44); headProfile(o.look || 0, L); ctx.restore();
   ctx.fillStyle = THL; ctx.beginPath(); ctx.ellipse(3, -470, 15, 5, 0, 0, 7); ctx.fill();
   const reach = o.reach || 0;
   const hx = lerp(10 - sw * 26, o.reachX ?? 92, reach), hy = lerp(-250, o.reachY ?? -330, reach), ex = lerp(6 - sw * 12, 40, reach), ey = lerp(-350, -370, reach);
@@ -284,7 +287,7 @@ function roomWall(det) {
 }
 function drawRoom(t, o) {
   const det = o.detail || 0, bs = o.beamShift || 0;
-  const prevTh = [THL, THB, THD]; THL = C.cream; THB = '#93a8a7'; THD = '#5f7779';
+  const prevTh = [THL, THB, THD]; THL = C.cream; THB = '#6e878a'; THD = '#3d434d';
   ctx.drawImage(EXT, 0, 0);
   ctx.save(); ctx.beginPath(); ctx.rect(WIN.x0, WIN.y0, 600, 970); ctx.clip();
   ctx.strokeStyle = rgba(C.plum, .5); ctx.lineWidth = 7; ctx.lineCap = 'round';
@@ -342,7 +345,7 @@ function s1(t) {
   const lift = smooth(3, 4.4, t) * (1 - smooth(6, 7.4, t));
   drawRoom(t, { detail: 0, lift, look: lift * .15, glow: smooth(8.8, 10, t) });
   ctx.restore();
-  tone(.85);
+  tone(.12);
   if (t < 1.4) { ctx.fillStyle = `rgba(0,0,0,${1 - smooth(0, 1.4, t)})`; ctx.fillRect(0, 0, W, H); }
 }
 
@@ -410,10 +413,10 @@ function s2(t) {
   ctx.fillStyle = C.ink; ctx.fillRect(0, 1296, W, 8);
   ctx.strokeStyle = rgba(C.plum3, .6); ctx.lineWidth = 2; for (let i = 0; i < 9; i++) { const x = mod(i * 160 + (sc + AL_OFF) * 1.15, 1440) - 180; ctx.beginPath(); ctx.moveTo(x, 1304); ctx.lineTo(x - 260, H); ctx.stroke(); }
   const v = t < 5.5 ? 230 : t < 10 ? 230 - 190 * (t - 5.5) / 4.5 : 40, mx = 650, my = 1384;
-  ctx.fillStyle = rgba(C.ink, .55); poly([mx - 40, my, mx + 40, my, mx - 150, my + 230, mx - 250, my + 220]); ctx.fill();
-  walkerProfile(mx, my, .92, { flip: true, phase: sc / 40, walk: clamp(v / 230, .35, 1), look: smooth(6, 9, t) * -.2 });
+  ctx.fillStyle = rgba(C.ink, .6); poly([mx - 50, my + 40, mx + 50, my + 40, mx - 200, my + 420, mx - 330, my + 400]); ctx.fill();
+  walkerProfile(mx, my + 40, 1.3, { flip: true, phase: sc / 40, walk: clamp(v / 230, .35, 1), look: smooth(6, 9, t) * -.2 });
   for (let k = -1; k < 2; k++) { const fx = mod(-500 + sc * 1.8, 2600) - 600 + k * 2600; ctx.fillStyle = C.ink; ctx.fillRect(fx, 0, 150, H); ctx.fillStyle = C.coral; ctx.fillRect(fx + 146, 0, 4, H); }
-  tone(.55 + smooth(7, 10, t) * .2);
+  tone(.08 + smooth(7, 10, t) * .15);
   const pa = 1 - smooth(.4, 3.6, t) * .8;
   ctx.save(); ctx.translate(X(402.5), 1450); ctx.scale(1, .25); radial(0, 0, 330, C.gold, .85 * pa); ctx.restore();
   const cx = X(SP_M * 640 + 160) + 242, gl = smooth(5.2, 7.6, t);
@@ -464,7 +467,7 @@ function s3(t) {
   ctx.fillStyle = rgba(C.ink, .5); ctx.beginPath(); ctx.ellipse(880, 1652, 90, 14, 0, 0, 7); ctx.fill();
   walkerProfile(910, 1648, 1.45, { flip: true, walk: 0, look: -curious * .55, lean: -curious * .03, reach, reachX: 82 + open * 40, reachY: -330 });
   ctx.restore();
-  tone(.8 + .2 * curious, .1 * curious);
+  tone(.3 + .6 * curious, .1 * curious);
   vignette(.4);
 }
 
@@ -534,7 +537,7 @@ function s4(t) {
     walkerBack(mx, my, ms, { phase: (t - .6) * 5.2, walk: 1 - smooth(4.8, 5.8, t), look: smooth(6.4, 8.4, t) }); }
   ctx.save(); ctx.translate(-20 * ease(t / 9), -10 * ease(t / 9)); ctx.translate(Math.sin(t * .6) * 6, 0); ctx.drawImage(FG_LEAVES, 0, 0); ctx.restore();
   ctx.restore();
-  tone(.6 + .4 * warm, .3 * warm);
+  tone(.75 + .25 * warm, .3 * warm);
   vignette(.4);
 }
 
@@ -676,7 +679,7 @@ function renderInto(c, i, t) { const prev = ctx; ctx = c.getContext('2d'); ctx.s
 function sceneAt(T) { for (let i = SC.length - 1; i >= 0; i--) if (T >= SC[i].start) return i; return 0; }
 function beamGeom(q) { const Pt = [492, 1300], d = [265, 620], dl = Math.hypot(d[0], d[1]), u = [d[0] / dl, d[1] / dl], n = [-u[1], u[0]]; return { Pt, u, n, hw: lerp(6, 2300, Math.pow(ease(q), 2)) }; }
 function renderFrame(T) {
-  ctx = MAIN; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  ctx = SRCX; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   const tr = TR.find(r => T >= r.a && T < r.z);
   if (!tr) { const i = sceneAt(T); ctx.save(); SC[i].fn(T - SC[i].start); ctx.restore(); }
   else {
@@ -695,9 +698,60 @@ function renderFrame(T) {
       for (const sg of [-1, 1]) { ctx.beginPath(); ctx.moveTo(Pt[0] - u[0] * 3000 + sg * n[0] * hw, Pt[1] - u[1] * 3000 + sg * n[1] * hw); ctx.lineTo(Pt[0] + u[0] * 3000 + sg * n[0] * hw, Pt[1] + u[1] * 3000 + sg * n[1] * hw); ctx.stroke(); }
       ctx.restore(); }
   }
-  grain(T, .22);
+  ctx = MAIN; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  if (PRINT) { PRINT.render(SRC, T); ctx.drawImage(PRINT.canvas, 0, 0); }
+  else { ctx.drawImage(SRC, 0, 0); grain(T, .22); }
   drawTexts(T);
 }
+
+/* ---------------- print pass (GPU) ----------------
+   Every pixel is snapped to the limited palette; in-between tones are
+   stippled between the two nearest inks, so soft light and shadow turn
+   into printed grain, as in a riso / screen-printed editorial illustration. */
+const INKS = ['#211a24', '#3b2a38', '#4f3947', '#6a4b58', '#b9837e', '#2c5761', '#467b83', '#7ba6a5', '#b3cec6', '#a9533f', '#c66c50', '#de9470', '#efc39a',
+  '#f5eee2', '#e2d7c4', '#f2bf5e', '#ffdc8e', '#c07f5f', '#7f4c3d', '#6a3c33', '#53302a', '#a3b6b3', '#6e878a', '#93a8a7',
+  '#14171c', '#262b33', '#3d434d', '#5c6470', '#8b929b', '#bcc1c6', '#e8e9e6'];
+const PRINT = (() => {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const gl = c.getContext('webgl2', { preserveDrawingBuffer: true });
+  if (!gl) return null;
+  const vs = `#version 300 es
+  in vec2 p; out vec2 uv; void main(){ uv = p*.5+.5; uv.y = 1.-uv.y; gl_Position = vec4(p,0,1); }`;
+  const fs = `#version 300 es
+  precision highp float; in vec2 uv; out vec4 o;
+  uniform sampler2D src; uniform vec3 pal[${INKS.length}]; uniform float seed;
+  float hash(vec2 p){ p = fract(p*vec2(443.897,441.423)); p += dot(p, p.yx+19.19); return fract((p.x+p.y)*p.x); }
+  void main(){
+    vec3 c = texture(src, uv).rgb;
+    float d1 = 1e9, d2 = 1e9; vec3 a = c, b = c;
+    for (int i = 0; i < ${INKS.length}; i++) { vec3 e = c - pal[i]; float d = dot(e, e * vec3(.9, 1.2, .7));
+      if (d < d1) { d2 = d1; b = a; d1 = d; a = pal[i]; } else if (d < d2) { d2 = d; b = pal[i]; } }
+    float t = sqrt(d1) / (sqrt(d1) + sqrt(d2) + 1e-5);            // 0 = exactly ink a, .5 = halfway to ink b
+    vec2 cell = floor(gl_FragCoord.xy / 1.6);
+    float n = hash(cell + seed);
+    o = vec4(n < t ? b : a, 1.);
+  }`;
+  const mk = (type, src) => { const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
+  let prog;
+  try { prog = gl.createProgram(); gl.attachShader(prog, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, mk(gl.FRAGMENT_SHADER, fs)); gl.bindAttribLocation(prog, 0, 'p'); gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog)); } catch (e) { console.warn('print pass disabled:', e); return null; }
+  gl.useProgram(prog);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  const pal = new Float32Array(INKS.flatMap(h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }));
+  gl.uniform3fv(gl.getUniformLocation(prog, 'pal'), pal);
+  const uSeed = gl.getUniformLocation(prog, 'seed');
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.uniform1i(gl.getUniformLocation(prog, 'src'), 0);
+  return { canvas: c, render(source, T) {
+    gl.viewport(0, 0, W, H); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    gl.uniform1f(uSeed, (Math.floor(T * 8) % 4) * 7.13);           // the grain "boils" gently at 8 fps
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  } };
+})();
 
 /* =====================================================================
    PLAYER

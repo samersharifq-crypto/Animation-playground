@@ -6,14 +6,14 @@ const path = require('path');
 (async () => {
   const out = process.argv[2] || path.join(__dirname, '..', 'beyond-the-familiar.mp4');
   const fps = +(process.argv[3] || 30);
-  const b = await chromium.launch();
+  const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const pg = await b.newPage({ viewport: { width: 600, height: 1100 } });
   await pg.goto('file://' + path.join(__dirname, '..', 'index.html') + '?capture', { waitUntil: 'commit' });
   await pg.waitForFunction(() => window.__ready, null, { timeout: 30000 });
   const total = await pg.evaluate(() => window.__TOTAL);
   const n = Math.round(total * fps);
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), '-i', '-',
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '29', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', '30', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
   for (let i = 0; i < n; i++) {
     const url = await pg.evaluate(t => window.__frame(t), i / fps);
     if (!ff.stdin.write(Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'))) await new Promise(r => ff.stdin.once('drain', r));
