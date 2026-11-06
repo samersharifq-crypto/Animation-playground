@@ -117,3 +117,30 @@ A 45-second vertical (9:16) stop-motion paper collage in Arabic, built from the 
 6. **What we look for**: at night the city slides apart again, leaving only the one lit window in its ring.
 
 Open `torn-paper-city/index.html` to play it. Space plays or pauses, R restarts, M turns the sound on or off, H hides the controls, and the slider scrubs. Add `?clean` to the URL to hide the controls. `torn-paper-city/torn-paper-city.mp4` is the rendered 1080×1920 video with its generated soundtrack: plucked piano, a paper room tone, slaps, rips and swishes on cue. To render it again, run `node torn-paper-city/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
+
+## torn-paper-lucid/ — *Torn Paper Lucid*
+
+A 52-second vertical (9:16) stop-motion follow-up to *Torn Paper City*. It uses the same six lines and torn sheets, but this time there is a man at its centre, and the world around him slowly comes unstuck.
+
+**The man**
+- His portrait has eyes with heavy lids, flat brows, a halftone-shaded nose, closed neutral lips, ears and hair. He keeps a **poker face** the whole way through: he only blinks and stares.
+- In the walking shots he is a jointed paper puppet seen in profile, with the same face side-on. He has a coat, collar, thighs, shins, shoes, upper arms, forearms and hands, all joined with brass split pins.
+- His walk is keyed pose by pose, twelve poses a second, like real stop-motion.
+
+**The trip** builds scene by scene and then fades away:
+- outlines boil every other frame
+- the walls breathe and lean
+- the colours drift and cycle
+- a red/cyan split pulls the image apart
+- ghost copies trail behind him in different colours
+- every window on a facade opens into the same staring eye
+- the sun turns into an op-art spiral
+- his face slides apart in slices like the tower, then splits down the middle
+- a tunnel of his own face pulses behind him
+- negative flashes
+
+At the end it is calm again: the city slides away, one lit window is left, and he is still there looking back at you with the same expression.
+
+The generated soundtrack follows the same curve. A quiet plucked lullaby starts to wow and drift like warped tape, then a slow heartbeat, detuned drones and a glassy shimmer come in. Reversed swells rise into each tear, and it all settles on one clear note.
+
+Open `torn-paper-lucid/index.html` to play it (Space, R, M, H and the slider, as before). A slow machine drops the boiling filter on its own, and `?lite` forces that. `torn-paper-lucid/torn-paper-lucid.mp4` is the rendered 1080×1920 video. To render it again, run `node torn-paper-lucid/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
