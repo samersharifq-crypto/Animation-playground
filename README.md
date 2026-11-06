@@ -36,3 +36,16 @@ It's drawn live on canvas: an elongated, backlit figure in a dark coat with a ha
 - `beyond-the-familiar-city-sound.m4a`: the generated soundtrack. It has city ambience that hushes in the courtyard, footsteps synced to the walk cycle, cars, a subway train, leaves, paper and sparse piano.
 - `narration-timing.srt`: the exact Arabic narration lines with their on-screen timings. Put a recorded voiceover at `narration.mp3` next to `index.html` and the player plays it in sync.
 - `node beyond-the-familiar-city/tools/record.js` renders the MP4 again, and the soundtrack with it.
+
+## brain-rot/ — «تعفّن الدماغ»
+
+A 64-second vertical (9:16) motion graphic in Arabic about *brain rot*. Each scene borrows the look of one reference image: a hypnotic spiral, an RGB contour tunnel around a head, a pink halftone wall of TVs, a giant glowing phone, a man in an armchair lit by an old set, and a warm dawn at the end. It's all drawn live on canvas, with no images.
+
+1. **The spiral**: a man in a grey suit walks into a turning spiral. Title.
+2. **What is it?**: a head in silhouette inside RGB rings that fray and glitch. The definition, adapted from Oxford.
+3. **Word of the year**: TVs pop up on a pink halftone wall. Oxford's 2024 Word of the Year, and its 230% rise in use.
+4. **Infinite scroll**: the feed speeds up on a giant phone. Variable rewards, and the 47-second attention span from Gloria Mark's research.
+5. **Not a new word**: Thoreau's 1854 line from *Walden*, then the set switches off down to a dot.
+6. **The way back**: the dot becomes a sunrise. Four habits to get your focus back.
+
+Open `brain-rot/index.html` to play it (space = play/pause, M = sound, click the bar to seek). `brain-rot/brain-rot.mp4` is the rendered 1080×1920 30fps video with its synthesized soundtrack. To render it again, run `node brain-rot/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).

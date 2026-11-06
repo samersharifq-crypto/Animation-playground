@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>تعفّن الدماغ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;600&family=Noto+Naskh+Arabic:wght@500&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one 9:16 canvas fitted to the screen, a slim player bar under it. Single dark look. */
+  :root { --bg: #0d0c12; --ink: #f3eee8; --line: rgba(243,238,232,.22); --accent: #ff5f7e; --btn: #211e2a; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  #wrap { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  #stage { position: relative; background: #000; box-shadow: 0 20px 60px rgba(0,0,0,.55); max-width: 100%; }
+  #art { display: block; width: 100%; height: 100%; }
+  #controls { display: flex; align-items: center; gap: 10px; direction: ltr; font: 500 13px/1 system-ui, sans-serif; max-width: 100%; }
+  #controls button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--btn); color: var(--ink); font-size: 15px; cursor: pointer; display: grid; place-items: center; flex: none; }
+  #controls button:hover { border-color: rgba(243,238,232,.55); }
+  #controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #controls button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  #bar { position: relative; flex: 1; min-width: 0; height: 28px; cursor: pointer; touch-action: none; }
+  #bar::before { content: ""; position: absolute; left: 0; right: 0; top: 13px; height: 2px; border-radius: 2px; background: var(--line); }
+  #fill { position: absolute; left: 0; top: 13px; height: 2px; width: 0; border-radius: 2px; background: var(--accent); }
+  #time { font-variant-numeric: tabular-nums; opacity: .7; min-width: 74px; text-align: right; }
+  #loading { position: absolute; inset: 0; display: grid; place-items: center; font: 400 15px system-ui, sans-serif; color: rgba(243,238,232,.6); }
+</style>
+</head>
+<body>
+<main id="wrap">
+  <div id="stage">
+    <canvas id="art" width="1080" height="1920" role="img" aria-label="تعفّن الدماغ: موشن غرافيك قصير عن أثر المحتوى السريع على العقل"></canvas>
+    <div id="loading">…</div>
+  </div>
+  <div id="controls">
+    <button id="pp" aria-label="إيقاف مؤقت" title="Pause / Play (Space)">❚❚</button>
+    <button id="rp" aria-label="إعادة التشغيل" title="Replay">↺</button>
+    <button id="snd" aria-label="الصوت" aria-pressed="false" title="Sound (M)">♪</button>
+    <div id="bar" aria-label="Timeline"><div id="fill"></div></div>
+    <div id="time">0:00 / 1:04</div>
+  </div>
+</main>
+<script>
+"use strict";
+/* =====================================================================
+   تعفّن الدماغ — Brain Rot
+   A 64-second vertical motion graphic in six scenes, each in the visual
+   language of one reference: the hypnotic spiral, the RGB head tunnel,
+   the pink halftone TV wall, the glowing phone, the blue armchair room,
+   and a warm dawn for the way out. Every frame is a pure function of time.
+   ===================================================================== */
+const W = 1080, H = 1920;
+const art = document.getElementById('art');
+const ctx = art.getContext('2d');
+const BUF = document.createElement('canvas'); BUF.width = W; BUF.height = H;
+const bctx = BUF.getContext('2d');
+
+/* ---------------- helpers ---------------- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const ease = t => (t = clamp(t), t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOut = t => 1 - Math.pow(1 - clamp(t), 3);
+const easeBack = t => { t = clamp(t); const c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+const ar = s => String(s).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+const TAU = Math.PI * 2;
+
+function poly(g, pts) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); g.fill(); }
+function ell(g, x, y, rx, ry, rot = 0) { g.beginPath(); g.ellipse(x, y, rx, ry, rot, 0, TAU); g.fill(); }
+function rrect(g, x, y, w, h, r) { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); }
+function reset(g) { g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.shadowBlur = 0; g.shadowColor = 'transparent'; g.filter = 'none'; g.setLineDash([]); }
+
+/* ---------------- type ---------------- */
+const DISP = '"Reem Kufi", "Noto Kufi Arabic", "Geeza Pro", sans-serif';
+const BODY = '"IBM Plex Sans Arabic", "Noto Sans Arabic", "Geeza Pro", sans-serif';
+const QUOTE = '"Noto Naskh Arabic", "Amiri", "Geeza Pro", serif';
+function txt(g, s, x, y, o = {}) {
+  g.save();
+  g.globalAlpha *= (o.a ?? 1);
+  g.font = `${o.w || 400} ${o.size || 44}px ${o.font || BODY}`;
+  g.direction = 'rtl'; g.textAlign = o.al || 'center'; g.textBaseline = 'alphabetic';
+  if ('letterSpacing' in g) g.letterSpacing = o.ls || '0px';
+  if (o.sh) { g.shadowColor = o.sh; g.shadowBlur = o.blur ?? 26; }
+  g.fillStyle = o.c || '#fff';
+  g.fillText(s, x, y, o.max || W - 120);
+  g.restore();
+}
+// a line that rises into place at t0 and (optionally) fades out at t1
+function beat(g, s, x, y, lt, t0, o = {}, t1 = null) {
+  const k = easeOut((lt - t0) / .8); if (k <= 0) return;
+  let a = k; if (t1 != null) a *= 1 - smooth(t1, t1 + .5, lt); if (a <= 0) return;
+  txt(g, s, x, y + (1 - k) * 34, { ...o, a: (o.a ?? 1) * a });
+}
+
+/* ---------------- figures ---------------- */
+// A man seen from behind. Origin at his feet; one unit = 100*s px; total height ≈ 9 units.
+function figure(g, x, fy, s, P, o = {}) {
+  const u = 100 * s;
+  g.save(); g.translate(x, fy); g.scale(u, u); if (o.rot) g.rotate(o.rot);
+  g.fillStyle = P.trou;
+  poly(g, [[-0.95, -4.0], [-0.06, -4.0], [-0.16, -0.25], [-0.82, -0.25]]);
+  poly(g, [[0.06, -4.0], [0.95, -4.0], [0.82, -0.25], [0.16, -0.25]]);
+  g.fillStyle = P.shoe; ell(g, -0.5, -0.14, 0.44, 0.2); ell(g, 0.5, -0.14, 0.44, 0.2);
+  g.fillStyle = P.skin; g.fillRect(-0.28, -8.0, 0.56, 0.75);
+  ell(g, -0.53, -8.32, 0.12, 0.2); ell(g, 0.53, -8.32, 0.12, 0.2);
+  ell(g, 0, -8.35, 0.52, 0.62);
+  g.fillStyle = P.hair; ell(g, 0, -8.47, 0.54, 0.55);
+  // jacket
+  g.fillStyle = P.suit;
+  g.beginPath(); g.moveTo(-0.32, -7.45);
+  g.bezierCurveTo(-0.9, -7.42, -1.45, -7.3, -1.56, -6.75); g.lineTo(-1.4, -3.55); g.lineTo(1.4, -3.55); g.lineTo(1.56, -6.75);
+  g.bezierCurveTo(1.45, -7.3, 0.9, -7.42, 0.32, -7.45); g.closePath(); g.fill();
+  g.fillStyle = P.collar; poly(g, [[-0.36, -7.52], [0.36, -7.52], [0.27, -7.18], [-0.27, -7.18]]);
+  g.strokeStyle = P.shade; g.lineWidth = 0.06; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(0, -7.18); g.lineTo(0, -3.6); g.moveTo(0, -4.5); g.lineTo(0.12, -3.6); g.stroke();
+  // arms
+  g.strokeStyle = P.arm; g.lineWidth = 0.62; g.lineJoin = 'round';
+  if (o.hands === 'back') {
+    g.beginPath(); g.moveTo(-1.42, -6.8); g.quadraticCurveTo(-1.78, -5.2, -1.15, -4.62); g.lineTo(-0.38, -4.48); g.stroke();
+    g.beginPath(); g.moveTo(1.42, -6.8); g.quadraticCurveTo(1.78, -5.2, 1.15, -4.62); g.lineTo(0.38, -4.48); g.stroke();
+    g.fillStyle = P.skin; ell(g, -0.26, -4.46, 0.24, 0.18); ell(g, 0.26, -4.46, 0.24, 0.18);
+    if (o.hat) {
+      g.fillStyle = P.hat; ell(g, 0.42, -3.86, 0.66, 0.44, 0.35);
+      g.fillStyle = P.hatD; ell(g, 0.42, -3.86, 0.36, 0.25, 0.35);
+      g.fillStyle = P.hat; ell(g, 0.42, -3.92, 0.3, 0.19, 0.35);
+    }
+  } else {
+    g.beginPath(); g.moveTo(-1.44, -6.8); g.quadraticCurveTo(-1.72, -5.1, -1.64, -4.0); g.stroke();
+    g.beginPath(); g.moveTo(1.44, -6.8); g.quadraticCurveTo(1.72, -5.1, 1.64, -4.0); g.stroke();
+    g.fillStyle = P.skin; ell(g, -1.64, -3.78, 0.2, 0.28); ell(g, 1.64, -3.78, 0.2, 0.28);
+  }
+  g.restore();
+}
+const solid = c => ({ trou: c, shoe: c, skin: c, hair: c, suit: c, collar: c, shade: c, arm: c, hat: c, hatD: c });
+// silhouette + offset rim light
+function litFigure(g, x, fy, s, P, rim, offs, o) {
+  for (const [dx, dy] of offs) figure(g, x + dx, fy + dy, s, solid(rim), o);
+  figure(g, x, fy, s, P, o);
+}
+
+/* ---------------- grain (shared print texture) ---------------- */
+const GRAIN = [0, 1, 2].map(k => {
+  const c = document.createElement('canvas'); c.width = 540; c.height = 960;
+  const x = c.getContext('2d'), d = x.createImageData(540, 960), r = mulberry32(99 + k);
+  for (let i = 0; i < d.data.length; i += 4) { const v = r() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+  x.putImageData(d, 0, 0); return c;
+});
+function grain(g, t, amt = .13) {
+  g.save(); g.globalCompositeOperation = 'overlay'; g.globalAlpha = amt;
+  g.drawImage(GRAIN[Math.floor(t * 12) % 3], 0, 0, W, H); g.restore();
+}
+function vignette(g, a = .55) {
+  const v = g.createRadialGradient(W / 2, H * .48, H * .28, W / 2, H * .5, H * .75);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${a})`);
+  g.fillStyle = v; g.fillRect(0, 0, W, H);
+}
+function bandTop(g, h, c = '0,0,0', a = .9) { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, `rgba(${c},${a})`); gr.addColorStop(1, `rgba(${c},0)`); g.fillStyle = gr; g.fillRect(0, 0, W, h); }
+function bandBot(g, y, c = '0,0,0', a = .9) { const gr = g.createLinearGradient(0, y, 0, H); gr.addColorStop(0, `rgba(${c},0)`); gr.addColorStop(.45, `rgba(${c},${a * .85})`); gr.addColorStop(1, `rgba(${c},${a})`); g.fillStyle = gr; g.fillRect(0, y, W, H - y); }
+// slice the frame sideways for a moment of signal loss
+function glitch(g, amt, seed, n = 9) {
+  const r = mulberry32(seed);
+  for (let i = 0; i < n; i++) { const y = r() * H, h = 12 + r() * 90, dx = (r() - .5) * 2 * amt; g.drawImage(g.canvas, 0, y, W, h, dx, y, W, h); }
+}
+
+/* =====================================================================
+   SCENE 1 — the spiral (0–10s)
+   ===================================================================== */
+const MAN1 = { suit: '#9db8b4', shade: '#6f8e8b', collar: '#bcd0cb', arm: '#89a7a3', trou: '#8fabaa', shoe: '#2f3233', skin: '#d0a089', hair: '#d8d8d4', hat: '#7f9aa8', hatD: '#38464f' };
+function spiral(g, cx, cy, z, rot, col, alpha = 1) {
+  g.save(); g.translate(cx, cy); g.scale(z, z); g.rotate(rot); g.globalAlpha *= alpha; g.fillStyle = col;
+  const R = th => 14 * Math.pow(th, 1.35), Wd = th => 29.7 * Math.pow(th, .35);
+  const a0 = 1.6, a1 = 36, st = .05;
+  g.beginPath();
+  for (let th = a0; th <= a1; th += st) { const r = R(th) + Wd(th); g.lineTo(Math.cos(th) * r, Math.sin(th) * r); }
+  for (let th = a1; th >= a0; th -= st) { const r = Math.max(0, R(th) - Wd(th)); g.lineTo(Math.cos(th) * r, Math.sin(th) * r); }
+  g.closePath(); g.fill();
+  ell(g, 0, 0, 26, 26);
+  g.restore();
+}
+function s1(g, lt) {
+  g.fillStyle = '#0b0b0d'; g.fillRect(0, 0, W, H);
+  const cx = 540, cy = 860;
+  const z = (1 + lt * .02) * (1 + ease(smooth(8.4, 10.8, lt)) * 3.2);
+  spiral(g, cx, cy, z, -lt * 1.25, '#dcd8d0');
+  // a soft wobble in the paper
+  const gl = g.createRadialGradient(cx, cy, 0, cx, cy, 900); gl.addColorStop(0, 'rgba(255,255,255,.08)'); gl.addColorStop(1, 'rgba(0,0,0,.35)');
+  g.fillStyle = gl; g.fillRect(0, 0, W, H);
+  // he walks into it
+  const k = ease(clamp(lt / 9.2));
+  const s = lerp(1.08, .5, k), fy = lerp(1990, 1290, k);
+  const fa = 1 - smooth(8.2, 9.4, lt);
+  if (fa > 0) { g.save(); g.globalAlpha = fa; g.fillStyle = 'rgba(0,0,0,.35)'; ell(g, cx, fy - 6 * s, 170 * s, 22 * s); figure(g, cx + Math.sin(lt * 2.2) * 3 * s, fy, s, MAN1, { hands: 'back', hat: true, rot: Math.sin(lt * 2.2) * .008 }); g.restore(); }
+  bandTop(g, 620, '8,8,10', .97);
+  bandBot(g, 1500, '8,8,10', .9);
+  beat(g, 'ظاهرة من زمن الشاشات', 540, 168, lt, .5, { size: 36, c: '#b9b3aa', w: 400 }, 8.2);
+  beat(g, 'تعفّن الدماغ', 540, 340, lt, .9, { size: 160, font: DISP, w: 700, c: '#f6f2ea', sh: 'rgba(0,0,0,.8)' }, 8.4);
+  beat(g, 'BRAIN ROT', 540, 418, lt, 1.5, { size: 30, c: '#8f8a82', w: 600, ls: '14px', font: '"IBM Plex Sans Arabic", system-ui, sans-serif' }, 8.4);
+  beat(g, 'حين يغرق العقل في دوّامة', 540, 1712, lt, 4.4, { size: 50, w: 600, c: '#f1ece4' }, 8.0);
+  beat(g, 'التمرير الذي لا ينتهي', 540, 1786, lt, 4.9, { size: 50, w: 600, c: '#f1ece4' }, 8.0);
+}
+
+/* =====================================================================
+   SCENE 2 — the head tunnel (10–20s)
+   ===================================================================== */
+const HX = 560, HY = 860, HS = 430;
+function headPath(g) {
+  const P = (x, y) => [HX + x * HS, HY + y * HS];
+  g.beginPath();
+  g.moveTo(...P(1.0, 2.6));
+  g.lineTo(...P(0.82, 1.12));
+  g.quadraticCurveTo(...P(0.52, 0.9), ...P(0.38, 0.72));
+  g.quadraticCurveTo(...P(0.43, 0.5), ...P(0.46, 0.25));
+  g.bezierCurveTo(...P(0.62, -0.1), ...P(0.56, -0.56), ...P(0.25, -0.72));
+  g.bezierCurveTo(...P(0.02, -0.86), ...P(-0.32, -0.82), ...P(-0.43, -0.56));
+  g.quadraticCurveTo(...P(-0.51, -0.4), ...P(-0.48, -0.25));
+  g.quadraticCurveTo(...P(-0.5, -0.12), ...P(-0.58, -0.02));
+  g.lineTo(...P(-0.66, 0.12));
+  g.quadraticCurveTo(...P(-0.62, 0.17), ...P(-0.56, 0.18));
+  g.lineTo(...P(-0.585, 0.26));
+  g.quadraticCurveTo(...P(-0.54, 0.3), ...P(-0.575, 0.34));
+  g.quadraticCurveTo(...P(-0.56, 0.46), ...P(-0.45, 0.5));
+  g.quadraticCurveTo(...P(-0.3, 0.55), ...P(-0.25, 0.63));
+  g.lineTo(...P(-0.22, 0.86));
+  g.quadraticCurveTo(...P(-0.5, 1.0), ...P(-0.86, 1.12));
+  g.lineTo(...P(-1.05, 2.6));
+  g.closePath();
+}
+const sgnpow = (v, p) => Math.sign(v) * Math.pow(Math.abs(v), p);
+function ring(g, cx, cy, r, i, lt, dx, dy) {
+  g.beginPath();
+  const n = 150;
+  for (let k = 0; k <= n; k++) {
+    const a = k / n * TAU;
+    const w = Math.sin(a * 6 + lt * 1.6 + i * .5) * .028 + Math.sin(a * 17 - lt * 3.1 + i * 1.3) * .010 + Math.sin(a * 3 - lt * .7 + i * .2) * .02;
+    const rr = r * (1 + w);
+    const x = cx + rr * sgnpow(Math.cos(a), .72) + dx, y = cy + rr * 1.16 * sgnpow(Math.sin(a), .72) + dy;
+    k ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.stroke();
+}
+function s2(g, lt) {
+  g.fillStyle = '#050507'; g.fillRect(0, 0, W, H);
+  const z = lerp(1.12, 1.0, easeOut(lt / 3));
+  g.save(); g.translate(540, 900); g.scale(z, z); g.translate(-540, -900);
+  const cx = HX + .04 * HS, cy = HY + .06 * HS;
+  const N = 30, sp = 38, r0 = .66 * HS;
+  g.globalCompositeOperation = 'lighter'; g.lineWidth = 3.2; g.lineJoin = 'round';
+  const jitter = 1 + smooth(5, 9, lt) * 2.2;     // the signal frays as the scene goes on
+  for (let i = 0; i < N; i++) {
+    const p = (i + lt * 1.15) % N, r = r0 + p * sp;
+    const a = smooth(0, 1.2, p) * (1 - smooth(N - 7, N, p));
+    if (a <= 0) continue;
+    const ii = Math.floor(i + lt * 1.15 - p + 1000);
+    g.globalAlpha = a * .95;
+    g.strokeStyle = '#ff2b4e'; ring(g, cx, cy, r, ii, lt, -6 * jitter, -2);
+    g.strokeStyle = '#2bff9a'; ring(g, cx, cy, r, ii, lt, 0, 3 * jitter);
+    g.strokeStyle = '#3a6bff'; ring(g, cx, cy, r, ii, lt, 6 * jitter, -1);
+    g.globalAlpha = a * .55; g.strokeStyle = '#ffffff'; g.lineWidth = 1.6; ring(g, cx, cy, r, ii, lt, 0, 0); g.lineWidth = 3.2;
+  }
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  // the silhouette
+  headPath(g); g.fillStyle = '#121215'; g.fill();
+  g.save(); headPath(g); g.clip();
+  const hl = g.createLinearGradient(HX - HS, 0, HX + HS, 0); hl.addColorStop(0, 'rgba(255,255,255,.05)'); hl.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = hl; g.fillRect(0, 0, W, H); g.restore();
+  // target on the mind
+  const dx = HX - .02 * HS, dy = HY - .27 * HS;
+  const flick = (Math.sin(lt * 23) > .6 && lt > 5) ? .35 : 1;
+  g.strokeStyle = `rgba(255,255,255,${.55 * flick})`; g.lineWidth = 3; g.setLineDash([14, 12]);
+  g.beginPath(); g.moveTo(dx, dy); g.lineTo(HX - .36 * HS, H); g.moveTo(dx, dy); g.lineTo(HX + .02 * HS, H); g.stroke(); g.setLineDash([]);
+  g.beginPath(); g.arc(dx, dy, 100, 0, TAU); g.stroke();
+  const pk = (lt * .8) % 1; g.strokeStyle = `rgba(255,255,255,${(1 - pk) * .5})`; g.beginPath(); g.arc(dx, dy, 18 + pk * 120, 0, TAU); g.stroke();
+  g.fillStyle = `rgba(255,255,255,${flick})`; ell(g, dx, dy, 17, 17);
+  g.restore();
+  // signal loss
+  for (const [a, b, s] of [[3.9, 4.15, 11], [6.6, 6.85, 23], [8.3, 8.6, 37], [9.2, 9.45, 41]]) if (lt > a && lt < b) glitch(g, 60, s + Math.floor(lt * 30));
+  bandTop(g, 420, '5,5,7', .95);
+  bandBot(g, 1440, '5,5,7', .96);
+  beat(g, 'ما هو؟', 540, 170, lt, .6, { size: 36, c: '#8ef0c3', w: 600 });
+  beat(g, 'تراجعٌ في صفاء الذهن', 540, 268, lt, 1.0, { size: 78, font: DISP, w: 700, c: '#ffffff' });
+  beat(g, 'تدهورٌ في الحالة الذهنية والقدرة على التفكير،', 540, 1600, lt, 2.6, { size: 42, c: '#eef0f6' });
+  beat(g, 'سببه الإفراط في استهلاك محتوى سريع وسطحي', 540, 1666, lt, 3.2, { size: 42, c: '#eef0f6' });
+  beat(g, 'لا يتطلّب أي جهد من العقل.', 540, 1732, lt, 3.8, { size: 42, c: '#eef0f6' });
+  beat(g, 'عن تعريف قاموس أكسفورد، بتصرّف', 540, 1812, lt, 4.6, { size: 28, c: '#7d8190' });
+}
+
+/* =====================================================================
+   SCENE 3 — the pink TV wall (20–31s)
+   ===================================================================== */
+const TVS = [
+  { x: -50, y: 70, w: 400, h: 290, k: 'static', ph: 0 },
+  { x: 400, y: 30, w: 300, h: 230, k: 'glitch', ph: 1.3 },
+  { x: 740, y: 120, w: 370, h: 280, k: 'eyes', ph: 2.1 },
+  { x: 320, y: 320, w: 430, h: 330, k: 'scroll', ph: .7 },
+  { x: -70, y: 480, w: 370, h: 300, k: 'heart', ph: 2.8 },
+  { x: 780, y: 490, w: 340, h: 290, k: 'clock', ph: 1.9 },
+];
+function heartPath(g, x, y, s) {
+  g.beginPath(); g.moveTo(x, y + s * .3);
+  g.bezierCurveTo(x, y, x - s * .5, y - s * .1, x - s * .5, y + s * .3);
+  g.bezierCurveTo(x - s * .5, y + s * .6, x, y + s * .8, x, y + s);
+  g.bezierCurveTo(x, y + s * .8, x + s * .5, y + s * .6, x + s * .5, y + s * .3);
+  g.bezierCurveTo(x + s * .5, y - s * .1, x, y, x, y + s * .3); g.closePath();
+}
+function screen(g, k, x, y, w, h, lt) {
+  const fr = Math.floor(lt * 18), r = mulberry32(fr * 7 + x | 0);
+  if (k === 'static') {
+    g.fillStyle = '#1a2a2c'; g.fillRect(x, y, w, h);
+    for (let i = 0; i < 260; i++) { const v = 90 + r() * 165 | 0; g.fillStyle = `rgb(${v * .7 | 0},${v},${v * .9 | 0})`; g.fillRect(x + r() * w, y + r() * h, 4 + r() * 26, 3); }
+    const yy = y + ((lt * 140) % h); g.fillStyle = 'rgba(200,255,240,.25)'; g.fillRect(x, yy, w, 14);
+  } else if (k === 'glitch') {
+    const cols = ['#e9f7f2', '#f4e36b', '#5fe0d8', '#5fd37a', '#d46ad9', '#e2535b', '#3e5fd8'];
+    const off = Math.floor(lt * 3) % 2 ? 0 : r() * 40;
+    cols.forEach((c, i) => { g.fillStyle = c; g.fillRect(x + i * w / 7, y, w / 7 + 1, h * .7); });
+    for (let i = 0; i < 6; i++) { g.fillStyle = cols[(r() * 7) | 0]; g.fillRect(x + (r() - .5) * off, y + r() * h * .7, w, 6 + r() * 10); }
+    g.fillStyle = '#101418'; g.fillRect(x, y + h * .7, w, h * .3);
+    g.fillStyle = '#fff'; g.fillRect(x + w * .1, y + h * .78, w * .2, h * .14);
+  } else if (k === 'eyes') {
+    g.fillStyle = '#8fcfc0'; g.fillRect(x, y, w, h);
+    g.fillStyle = '#6fb3a5'; ell(g, x + w / 2, y + h * .58, w * .42, h * .62);
+    const lx = Math.sin(lt * 1.7) * 10, blink = (lt % 3.1) < .12 ? .1 : 1;
+    for (const ex of [x + w * .32, x + w * .68]) {
+      g.fillStyle = '#d9f3ec'; ell(g, ex, y + h * .42, w * .12, h * .14 * blink);
+      g.fillStyle = '#1c3d3a'; ell(g, ex + lx, y + h * .43, w * .05, h * .08 * blink);
+    }
+    g.fillStyle = '#4b8c80'; g.fillRect(x + w * .48, y + h * .5, w * .04, h * .16);
+    g.fillStyle = '#2b5f57'; g.fillRect(x + w * .38, y + h * .78, w * .24, h * .04);
+  } else if (k === 'scroll') {
+    g.fillStyle = '#ede8f1'; g.fillRect(x, y, w, h);
+    const ch = 150, off = (lt * 260) % ch, cols = ['#ff5f7e', '#ffb43c', '#43b9f0', '#7cd38b', '#b07ae8'];
+    for (let i = -1; i < h / ch + 1; i++) {
+      const cy = y + i * ch - off, idx = Math.floor(lt * 260 / ch) + i;
+      g.fillStyle = '#fff'; g.fillRect(x + 20, cy + 10, w - 40, ch - 20);
+      g.fillStyle = cols[((idx % 5) + 5) % 5]; g.fillRect(x + w - 150, cy + 22, 110, ch - 44);
+      g.fillStyle = '#c9c2d2'; g.fillRect(x + 40, cy + 36, w - 220, 14); g.fillRect(x + 90, cy + 66, w - 270, 14);
+    }
+  } else if (k === 'heart') {
+    g.fillStyle = '#17141c'; g.fillRect(x, y, w, h);
+    const p = 1 + Math.max(0, Math.sin(lt * 7)) * .18;
+    g.fillStyle = '#ff3f5f'; heartPath(g, x + w / 2, y + h * .2, h * .46 * p); g.fill();
+    txt(g, '+' + ar((1200 + Math.floor(lt * 437)).toLocaleString('en')).replace(',', '٬'), x + w / 2, y + h * .9, { size: 34, w: 600, c: '#fff', max: w });
+  } else if (k === 'clock') {
+    g.fillStyle = '#0f2b2d'; g.fillRect(x, y, w, h);
+    const cyc = (lt / 1.6) % 1, cx = x + w / 2, cy = y + h * .46, R = h * .28;
+    g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 12; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.stroke();
+    g.strokeStyle = '#7ff0d2'; g.beginPath(); g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + cyc * TAU); g.stroke();
+    txt(g, ar('0:' + String(Math.floor(cyc * 15)).padStart(2, '0')), cx, cy + 14, { size: 40, w: 600, c: '#e7fff8', max: w });
+    txt(g, 'مقطع قصير', cx, y + h * .92, { size: 28, c: '#9fd8c9', max: w });
+  }
+  // scanlines + glass glare
+  g.fillStyle = 'rgba(0,0,0,.12)'; for (let yy = y; yy < y + h; yy += 6) g.fillRect(x, yy, w, 2);
+  const gl = g.createLinearGradient(x, y, x + w, y + h); gl.addColorStop(0, 'rgba(255,255,255,.22)'); gl.addColorStop(.4, 'rgba(255,255,255,0)'); g.fillStyle = gl; g.fillRect(x, y, w, h);
+}
+function tv(g, T, lt, i) {
+  const k = easeBack((lt - .15 * i) / .7); if (k <= 0) return;
+  const bob = Math.sin(lt * 1.1 + T.ph) * 8;
+  const cx = T.x + T.w / 2, cy = T.y + T.h / 2 + bob;
+  g.save(); g.translate(cx, cy); g.scale(k, k); g.translate(-cx, -cy + bob);
+  // shadow cast on the pink wall
+  g.fillStyle = 'rgba(120,30,60,.22)'; rrect(g, T.x + 26, T.y + 30, T.w, T.h, 26); g.fill();
+  // hanging neck
+  g.fillStyle = '#0c0c0e'; poly(g, [[cx - T.w * .16, T.y + T.h - 4], [cx + T.w * .16, T.y + T.h - 4], [cx + T.w * .08, T.y + T.h + 70], [cx - T.w * .08, T.y + T.h + 70]]);
+  g.fillStyle = '#121214'; rrect(g, T.x, T.y, T.w, T.h, 22); g.fill();
+  const ins = 22;
+  g.save(); rrect(g, T.x + ins, T.y + ins, T.w - ins * 2, T.h - ins * 2, 12); g.clip();
+  screen(g, T.k, T.x + ins, T.y + ins, T.w - ins * 2, T.h - ins * 2, lt);
+  g.restore();
+  g.restore();
+}
+function s3(g, lt) {
+  g.fillStyle = '#f2a6b6'; g.fillRect(0, 0, W, H);
+  // light wedges thrown by the screens
+  g.save(); g.translate(540, 760); g.rotate(lt * .03);
+  g.fillStyle = 'rgba(255,214,222,.55)';
+  for (let i = 0; i < 7; i++) { const a = i / 7 * TAU, b = a + .22; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * 2200, Math.sin(a) * 2200); g.lineTo(Math.cos(b) * 2200, Math.sin(b) * 2200); g.closePath(); g.fill(); }
+  g.restore();
+  // halftone
+  g.fillStyle = '#d97894';
+  g.beginPath();
+  const sp = 22;
+  for (let y = 0; y < H + sp; y += sp) for (let x = (y / sp) % 2 ? sp / 2 : 0; x < W + sp; x += sp) {
+    const d = Math.hypot(x - 540, (y - 760) * .8) / 1100;
+    const ang = Math.atan2(y - 760, x - 540) - lt * .03, ray = .5 + .5 * Math.cos(ang * 7);
+    const r = clamp(d * d * 1.2 + (1 - ray) * .25, 0, 1) * 8.5;
+    if (r > .6) { g.moveTo(x + r, y); g.arc(x, y, r, 0, TAU); }
+  }
+  g.fill();
+  TVS.forEach((T, i) => tv(g, T, lt, i));
+  // the viewer, cut out like a collage
+  const ry = lerp(140, 0, easeOut(lt / 1.6));
+  g.save(); g.translate(0, ry);
+  const man = () => {
+    g.beginPath(); g.moveTo(10, H + 40);
+    g.bezierCurveTo(20, 1500, 110, 1340, 330, 1295); g.bezierCurveTo(400, 1278, 432, 1250, 438, 1205);
+    g.lineTo(642, 1205); g.bezierCurveTo(648, 1250, 680, 1278, 750, 1295); g.bezierCurveTo(970, 1340, 1060, 1500, 1070, H + 40); g.closePath();
+    g.moveTo(540 + 142, 1060); g.ellipse(540, 1060, 142, 172, 0, 0, TAU);
+    g.moveTo(406, 1080); g.ellipse(396, 1080, 22, 40, 0, 0, TAU); g.moveTo(706, 1080); g.ellipse(684, 1080, 22, 40, 0, 0, TAU);
+  };
+  man(); g.strokeStyle = '#fff8f6'; g.lineWidth = 24; g.lineJoin = 'round'; g.stroke();
+  g.fillStyle = '#121214'; g.fill('nonzero');
+  // halftone hair highlight
+  g.save(); g.beginPath(); g.ellipse(540, 1060, 142, 172, 0, 0, TAU); g.clip();
+  g.fillStyle = '#34323a'; g.beginPath();
+  for (let y = 880; y < 1240; y += 14) for (let x = 390; x < 690; x += 14) { const d = Math.hypot(x - 560, y - 930) / 200; const r = clamp(1 - d) * 5.5; if (r > .5) { g.moveTo(x + r, y); g.arc(x, y, r, 0, TAU); } }
+  g.fill(); g.restore();
+  g.restore();
+  // facts written across his back
+  const n = Math.round(230 * ease(clamp((lt - 2.6) / 1.8)));
+  beat(g, 'كلمة العام ٢٠٢٤ في قاموس أكسفورد', 540, 1452, lt, 1.6, { size: 40, w: 600, c: '#f7a9bb' });
+  if (lt > 2.4) txt(g, ar(n) + '٪', 540, 1650, { size: 200, font: DISP, w: 700, c: '#ffffff', a: easeOut((lt - 2.4) / .5) });
+  beat(g, 'ارتفاعٌ في استخدام المصطلح بين ٢٠٢٣ و٢٠٢٤', 540, 1738, lt, 4.4, { size: 40, c: '#f4eef0' });
+  beat(g, 'مع انتشار المقاطع القصيرة ومنصّات التواصل', 540, 1800, lt, 5.0, { size: 32, c: '#b7a9b0' });
+}
+
+/* =====================================================================
+   SCENE 4 — the phone that glows (31–42s)
+   ===================================================================== */
+const MAN4 = { suit: '#2b3aa3', shade: '#1b2675', collar: '#3a4bc0', arm: '#25338e', trou: '#24308a', shoe: '#0d0d12', skin: '#efb8ad', hair: '#1a2058', hat: '#000', hatD: '#000' };
+const MINI = { suit: '#1d2a8a', shade: '#121a5c', collar: '#1d2a8a', arm: '#1a2680', trou: '#1a2470', shoe: '#0a0a10', skin: '#f2c0b4', hair: '#121640', hat: '#000', hatD: '#000' };
+const PX = 530, PY = 400, PW = 470, PH = 1100;
+const SX = PX + 18, SY = PY + 100, SW = PW - 36, SH = PH - 240;
+const POSTH = 80 + SW + 112;
+const POSTC = ['#ff4b6e', '#ffb23c', '#3ec2f6', '#78d98b', '#c47cf0'];
+function icon(g, k, x, y, s, c) {
+  g.save(); g.translate(x, y); g.strokeStyle = c; g.fillStyle = c; g.lineWidth = 3; g.lineJoin = 'round'; g.lineCap = 'round';
+  if (k === 'heart') { heartPath(g, 0, -s * .45, s); g.fillStyle = '#ff2e55'; g.fill(); }
+  else if (k === 'comment') { g.beginPath(); g.arc(0, 0, s * .45, .5, TAU - .2); g.lineTo(s * .5, s * .45); g.closePath(); g.stroke(); }
+  else if (k === 'share') { g.beginPath(); g.moveTo(-s * .5, -s * .1); g.lineTo(s * .5, -s * .45); g.lineTo(s * .1, s * .5); g.lineTo(0, 0); g.closePath(); g.stroke(); }
+  else if (k === 'save') { g.beginPath(); g.moveTo(-s * .32, -s * .48); g.lineTo(s * .32, -s * .48); g.lineTo(s * .32, s * .48); g.lineTo(0, s * .22); g.lineTo(-s * .32, s * .48); g.closePath(); g.stroke(); }
+  g.restore();
+}
+function post(g, x, y, w, k) {
+  g.fillStyle = '#fbfafd'; g.fillRect(x, y, w, POSTH);
+  const ax = x + w - 46, ay = y + 40;
+  g.strokeStyle = '#1d1d24'; g.lineWidth = 3; g.beginPath(); g.arc(ax, ay, 22, 0, TAU); g.stroke();
+  g.fillStyle = '#1d1d24'; ell(g, ax - 7, ay - 5, 3, 4); ell(g, ax + 7, ay - 5, 3, 4);
+  g.beginPath(); g.arc(ax, ay + 2, 11, .3, Math.PI - .3); g.stroke();
+  txt(g, '@أنا_ونفسي', x + w - 82, y + 38, { size: 24, w: 600, c: '#1d1d24', al: 'right', max: w });
+  txt(g, 'مُقترح لك · متابعة', x + w - 82, y + 66, { size: 19, c: '#4a6cf2', al: 'right', max: w });
+  g.fillStyle = POSTC[k % 5]; g.fillRect(x, y + 80, w, w);
+  const fx = x + w / 2 + Math.sin(k * 2.3) * w * .2;
+  figure(g, fx, y + 80 + w * .6, .075, MINI, { hands: 'side' });
+  const iy = y + 80 + w + 38;
+  icon(g, 'heart', x + w - 36, iy, 30); icon(g, 'comment', x + w - 92, iy, 30, '#1d1d24'); icon(g, 'share', x + w - 148, iy, 30, '#1d1d24'); icon(g, 'save', x + 34, iy, 30, '#1d1d24');
+  txt(g, '♥ ' + ar(2 + (k * 7) % 9) + ' إعجاب', x + w - 22, iy + 52, { size: 21, w: 600, c: '#1d1d24', al: 'right', max: w });
+}
+function s4(g, lt) {
+  g.fillStyle = '#07080d'; g.fillRect(0, 0, W, H);
+  const glow = g.createRadialGradient(PX + PW / 2, PY + PH / 2, 100, PX + PW / 2, PY + PH / 2, 1000);
+  glow.addColorStop(0, 'rgba(120,48,82,.75)'); glow.addColorStop(.5, 'rgba(60,24,48,.45)'); glow.addColorStop(1, 'rgba(7,8,13,0)');
+  g.fillStyle = glow; g.fillRect(0, 0, W, H);
+  // floor light
+  g.fillStyle = 'rgba(150,120,255,.07)'; poly(g, [[PX - 60, PY + PH - 20], [PX + PW, PY + PH - 20], [W, H], [0, H]]);
+  // the phone, with a halo
+  const breathe = .85 + Math.sin(lt * 2) * .08;
+  g.save(); g.shadowColor = `rgba(205,205,255,${breathe})`; g.shadowBlur = 140;
+  const body = g.createLinearGradient(PX, PY, PX + PW, PY + PH); body.addColorStop(0, '#9a9cf0'); body.addColorStop(1, '#6158cf');
+  g.fillStyle = body; rrect(g, PX, PY, PW, PH, 72); g.fill(); g.restore();
+  g.fillStyle = '#4b44a8'; rrect(g, PX + PW / 2 - 50, PY + 46, 100, 10, 5); g.fill(); ell(g, PX + PW / 2, PY + 26, 8, 8);
+  g.strokeStyle = '#5049b4'; g.lineWidth = 4; g.beginPath(); g.arc(PX + PW / 2, PY + PH - 70, 38, 0, TAU); g.stroke();
+  g.fillStyle = '#8c88ec'; g.fillRect(PX + PW - 2, PY + 260, 8, 90); g.fillRect(PX + PW - 2, PY + 380, 8, 90);
+  // the feed
+  g.save(); g.beginPath(); g.rect(SX, SY, SW, SH); g.clip();
+  g.fillStyle = '#fbfafd'; g.fillRect(SX, SY, SW, SH);
+  const sc = lt < 2.6 ? 0 : Math.pow(lt - 2.6, 2.1) * 52;
+  const first = Math.floor(sc / POSTH);
+  for (let i = first; i < first + 3; i++) post(g, SX, SY + i * POSTH - sc, SW, i);
+  // speed streaks once it races
+  const sp = clamp((lt - 6) / 3);
+  if (sp > 0) { g.fillStyle = `rgba(255,255,255,${sp * .55})`; for (let i = 0; i < 14; i++) { const r = mulberry32(i * 31 + Math.floor(lt * 20)); g.fillRect(SX + r() * SW, SY + r() * SH, 3 + r() * 6, 60 + r() * 220); } }
+  g.restore();
+  // little hearts escaping the screen
+  for (let i = 0; i < 9; i++) {
+    const p = ((lt - 4 - i * .55) / 3.2); if (p < 0 || p > 1) continue;
+    const r = mulberry32(i * 77); const hx = PX + PW * (.15 + r() * .8) + Math.sin(p * 6 + i) * 30, hy = PY + PH * .55 - p * 700;
+    g.globalAlpha = Math.sin(p * Math.PI); g.fillStyle = '#ff4f74'; heartPath(g, hx, hy, 34 + r() * 18); g.fill(); g.globalAlpha = 1;
+  }
+  // he leans in
+  const mx = lerp(250, 300, ease(lt / 10));
+  g.fillStyle = 'rgba(0,0,0,.45)'; ell(g, mx + 40, 1562, 190, 20);
+  litFigure(g, mx, 1560, .96, MAN4, '#c9c3ff', [[7, -2]], { hands: 'side', rot: .015 });
+  bandTop(g, 440, '7,8,13', .92);
+  beat(g, 'فخّ التمرير اللانهائي', 540, 150, lt, .5, { size: 38, w: 600, c: '#a6a8ff' });
+  beat(g, 'كل مقطع جديد مكافأةٌ صغيرة', 540, 250, lt, .9, { size: 66, font: DISP, w: 700, c: '#ffffff' });
+  beat(g, 'لا تعرف متى تأتي… فيطلب دماغك المزيد', 540, 330, lt, 1.6, { size: 40, c: '#c9cbe9' });
+  bandBot(g, 1560, '7,8,13', .94);
+  beat(g, '٤٧ ثانية', 540, 1735, lt, 5.6, { size: 110, font: DISP, w: 700, c: '#ff6b8a' });
+  beat(g, 'متوسط تركيزنا على شاشة واحدة قبل أن ننتقل لغيرها', 540, 1805, lt, 6.2, { size: 34, c: '#e9e8f6' });
+  beat(g, 'كان دقيقتين ونصفاً عام ٢٠٠٤ · أبحاث د. غلوريا مارك', 540, 1858, lt, 6.8, { size: 26, c: '#8486a8' });
+}
+
+/* =====================================================================
+   SCENE 5 — the armchair and the old set (42–52s)
+   ===================================================================== */
+const TVX = 650, TVY = 900, TVW = 310, TVH = 235;
+const SCR = { x: TVX + 22, y: TVY + 24, w: 205, h: 180 };
+function s5(g, lt) {
+  g.fillStyle = '#1f2154'; g.fillRect(0, 0, W, H);
+  const r0 = mulberry32(5); g.fillStyle = 'rgba(255,255,255,.025)';
+  for (let i = 0; i < 40; i++) g.fillRect(r0() * W, r0() * H, 2, 120 + r0() * 500);
+  const z = lerp(1, 1.08, ease(lt / 9));
+  g.save(); g.translate(540, 1000); g.scale(z, z); g.translate(-540, -1000);
+  const flick = .55 + .25 * Math.sin(lt * 31) * Math.sin(lt * 7.3) + .1 * Math.sin(lt * 53);
+  const off = smooth(8.6, 8.9, lt);
+  // floor shadows
+  g.fillStyle = 'rgba(8,8,30,.55)';
+  poly(g, [[110, 1235], [470, 1205], [330, 1290], [-60, 1310]]);
+  poly(g, [[TVX + 20, 1255], [TVX + TVW, 1250], [TVX + TVW - 120, 1300], [TVX - 120, 1300]]);
+  // beam from the set to his face
+  if (off < 1) {
+    g.save(); g.globalAlpha = flick * (1 - off);
+    const bm = g.createLinearGradient(330, 0, SCR.x, 0); bm.addColorStop(0, 'rgba(70,90,200,.45)'); bm.addColorStop(1, 'rgba(110,130,230,.75)');
+    g.fillStyle = bm; poly(g, [[322, 808], [SCR.x + 6, SCR.y + 4], [SCR.x + 6, SCR.y + SCR.h - 4], [322, 852]]);
+    g.beginPath(); g.moveTo(322, 808); g.lineTo(SCR.x + 6, SCR.y + 4); g.lineTo(SCR.x + 6, SCR.y + SCR.h - 4); g.lineTo(322, 852); g.closePath(); g.clip();
+    const r = mulberry32(Math.floor(lt * 14)); g.fillStyle = 'rgba(160,175,255,.35)';
+    for (let i = 0; i < 260; i++) g.fillRect(320 + r() * 360, 800 + r() * 280, 2, 2);
+    g.restore();
+  }
+  // armchair
+  g.fillStyle = '#4a2430'; poly(g, [[120, 905], [215, 878], [250, 1185], [150, 1205]]);
+  g.fillStyle = '#5e2f3b'; poly(g, [[140, 912], [205, 892], [232, 1150], [160, 1168]]);
+  // the man, reclined
+  g.fillStyle = '#7f9893'; poly(g, [[212, 905], [292, 880], [338, 1035], [258, 1072]]);
+  g.fillStyle = '#9db3ad'; poly(g, [[250, 892], [292, 880], [330, 1010], [300, 1020]]);
+  g.fillStyle = '#c4473e'; poly(g, [[282, 890], [296, 886], [300, 960], [290, 962]]);
+  g.fillStyle = '#d99a7a'; poly(g, [[276, 888], [300, 878], [305, 842], [287, 846]]);
+  g.fillStyle = '#e1a585'; poly(g, [[280, 812], [312, 796], [330, 824], [322, 846], [296, 852], [284, 840]]);
+  g.fillStyle = '#2b2333'; poly(g, [[276, 818], [298, 790], [318, 794], [310, 808], [290, 830]]);
+  g.fillStyle = '#7a918c'; poly(g, [[258, 1032], [425, 1022], [432, 1072], [270, 1090]]);
+  g.fillStyle = '#8aa39e'; poly(g, [[408, 1030], [440, 1034], [470, 1186], [440, 1192]]);
+  g.fillStyle = '#e1a585'; poly(g, [[440, 1186], [494, 1190], [492, 1204], [436, 1204]]);
+  g.fillStyle = '#d99a7a'; poly(g, [[300, 962], [400, 1012], [394, 1034], [294, 990]]);
+  g.fillStyle = '#16141c'; poly(g, [[372, 1000], [418, 1006], [416, 1018], [370, 1012]]);
+  // seat, arm and base of the chair
+  g.fillStyle = '#5a2c38'; poly(g, [[176, 1060], [258, 1056], [262, 1170], [182, 1186]]);
+  g.fillStyle = '#6b3542'; poly(g, [[170, 1150], [452, 1120], [452, 1172], [176, 1214]]);
+  g.fillStyle = '#3c1c27'; poly(g, [[176, 1214], [452, 1172], [448, 1200], [186, 1236]]);
+  g.fillStyle = '#2a141c'; g.fillRect(196, 1230, 10, 26); g.fillRect(430, 1196, 10, 26);
+  // the television
+  g.strokeStyle = '#8f8aa4'; g.lineWidth = 4; g.beginPath();
+  g.moveTo(TVX + 160, TVY); g.lineTo(TVX + 110, TVY - 110); g.moveTo(TVX + 170, TVY); g.lineTo(TVX + 236, TVY - 122);
+  g.moveTo(TVX + 30, TVY + TVH); g.lineTo(TVX + 14, TVY + TVH + 120); g.moveTo(TVX + TVW - 30, TVY + TVH); g.lineTo(TVX + TVW - 14, TVY + TVH + 120);
+  g.moveTo(TVX + TVW / 2, TVY + TVH); g.lineTo(TVX + TVW / 2 + 8, TVY + TVH + 90); g.stroke();
+  const cab = g.createLinearGradient(TVX, TVY, TVX + TVW, TVY + TVH); cab.addColorStop(0, '#3a2a3a'); cab.addColorStop(1, '#241a28');
+  g.fillStyle = cab; rrect(g, TVX, TVY, TVW, TVH, 10); g.fill();
+  g.fillStyle = '#2d2135'; poly(g, [[TVX + TVW, TVY + 4], [TVX + TVW + 26, TVY + 18], [TVX + TVW + 26, TVY + TVH - 6], [TVX + TVW, TVY + TVH]]);
+  g.fillStyle = '#b54a4a'; rrect(g, SCR.x - 7, SCR.y - 7, SCR.w + 14, SCR.h + 14, 18); g.fill();
+  g.fillStyle = '#5a5168'; for (const ky of [TVY + 50, TVY + 100]) ell(g, TVX + TVW - 38, ky, 15, 15);
+  g.fillStyle = '#4a4258'; for (let i = 0; i < 5; i++) g.fillRect(TVX + TVW - 56, TVY + 140 + i * 13, 38, 5);
+  g.save(); rrect(g, SCR.x, SCR.y, SCR.w, SCR.h, 14); g.clip();
+  g.fillStyle = '#7e8387'; g.fillRect(SCR.x, SCR.y, SCR.w, SCR.h);
+  const r = mulberry32(Math.floor(lt * 20) + 9);
+  for (let i = 0; i < 900; i++) { const v = 120 + r() * 135 | 0; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(SCR.x + r() * SCR.w, SCR.y + r() * SCR.h, 3 + r() * 4, 2); }
+  g.restore();
+  g.restore();
+  bandTop(g, 520, '31,33,84', .9);
+  beat(g, 'ليس مصطلحاً جديداً', 540, 180, lt, .4, { size: 36, w: 600, c: '#9da2ef' }, 8.4);
+  beat(g, 'عام ١٨٥٤ كتب هنري ديفيد ثورو', 540, 280, lt, .8, { size: 56, font: DISP, w: 700, c: '#ffffff' }, 8.4);
+  beat(g, 'في كتابه «والدن»', 540, 350, lt, 1.3, { size: 38, c: '#c6c9f2' }, 8.4);
+  bandBot(g, 1380, '31,33,84', .92);
+  beat(g, '”', 900, 1520, lt, 2.4, { size: 160, font: QUOTE, c: '#5a60c4' }, 8.4);
+  beat(g, 'بينما تسعى إنجلترا لعلاج تعفّن البطاطس،', 540, 1540, lt, 2.6, { size: 46, font: QUOTE, w: 500, c: '#f3efe8' }, 8.4);
+  beat(g, 'ألا يسعى أحدٌ لعلاج تعفّن الدماغ', 540, 1616, lt, 3.4, { size: 46, font: QUOTE, w: 500, c: '#f3efe8' }, 8.4);
+  beat(g, 'الذي ينتشر على نحوٍ أوسع وأشدّ فتكاً؟', 540, 1692, lt, 4.2, { size: 46, font: QUOTE, w: 500, c: '#f3efe8' }, 8.4);
+  beat(g, 'كان ينتقد تسطيح الأفكار، قبل الإنترنت بقرنٍ ونصف', 540, 1790, lt, 5.6, { size: 30, c: '#9195cf' }, 8.4);
+  // the set switches off: flash, collapse to a line, then a dot
+  if (lt > 8.4) {
+    g.fillStyle = `rgba(0,0,0,${smooth(8.4, 9.0, lt)})`; g.fillRect(0, 0, W, H);
+    const k = (lt - 8.6) / 1.3;
+    if (k > 0) {
+      const sx = (SCR.x + SCR.w / 2 - 540) * z + 540, sy = (SCR.y + SCR.h / 2 - 1000) * z + 1000;
+      let w = SCR.w * z, h = SCR.h * z;
+      h *= 1 - smooth(.05, .4, k) * .985;
+      w *= 1 - smooth(.4, .75, k) * .96;
+      g.save(); g.shadowColor = '#cfe0ff'; g.shadowBlur = 40; g.fillStyle = '#f4f7ff';
+      if (k < .75) g.fillRect(sx - w / 2, sy - h / 2, w, h);
+      else ell(g, sx, sy, 7, 7);
+      g.restore();
+    }
+  }
+}
+
+/* =====================================================================
+   SCENE 6 — the way back (52–64s)
+   ===================================================================== */
+const DOT = { x: (SCR.x + SCR.w / 2 - 540) * 1.08 + 540, y: (SCR.y + SCR.h / 2 - 1000) * 1.08 + 1000 };
+const DARK = { suit: '#1a1222', shade: '#1a1222', collar: '#1a1222', arm: '#1a1222', trou: '#1a1222', shoe: '#1a1222', skin: '#1a1222', hair: '#1a1222', hat: '#1a1222', hatD: '#1a1222' };
+function tipIcon(g, k, x, y, a) {
+  g.save(); g.globalAlpha *= a; g.translate(x, y);
+  g.strokeStyle = 'rgba(255,207,138,.45)'; g.lineWidth = 2.5; g.beginPath(); g.arc(0, 0, 42, 0, TAU); g.stroke();
+  g.strokeStyle = '#ffcf8a'; g.lineWidth = 3.5; g.lineCap = 'round'; g.lineJoin = 'round';
+  if (k === 0) { // bell, crossed out
+    g.beginPath(); g.moveTo(-16, 10); g.quadraticCurveTo(-14, -18, 0, -18); g.quadraticCurveTo(14, -18, 16, 10); g.lineTo(20, 14); g.lineTo(-20, 14); g.closePath(); g.stroke();
+    g.beginPath(); g.arc(0, 19, 5, 0, Math.PI); g.stroke(); g.beginPath(); g.moveTo(-22, -22); g.lineTo(22, 22); g.stroke();
+  } else if (k === 1) { // hourglass
+    g.beginPath(); g.moveTo(-14, -20); g.lineTo(14, -20); g.lineTo(-14, 20); g.lineTo(14, 20); g.closePath(); g.stroke();
+    g.fillStyle = '#ffcf8a'; poly(g, [[-7, 15], [7, 15], [0, 6]]);
+  } else if (k === 2) { // open book
+    g.beginPath(); g.moveTo(0, -12); g.quadraticCurveTo(-12, -18, -24, -14); g.lineTo(-24, 16); g.quadraticCurveTo(-12, 12, 0, 18); g.quadraticCurveTo(12, 12, 24, 16); g.lineTo(24, -14); g.quadraticCurveTo(12, -18, 0, -12); g.lineTo(0, 18); g.stroke();
+  } else { // leaf
+    g.beginPath(); g.moveTo(-18, 18); g.quadraticCurveTo(-20, -16, 20, -20); g.quadraticCurveTo(18, 16, -18, 18); g.stroke();
+    g.beginPath(); g.moveTo(-18, 18); g.lineTo(6, -6); g.stroke();
+  }
+  g.restore();
+}
+const TIPS = ['أطفئ الإشعارات غير الضرورية', 'حدّد وقتاً يومياً للشاشة والتزم به', 'اقرأ نصاً طويلاً كل يوم، ولو صفحات', 'امشِ بلا هاتف، ودع عقلك يملّ قليلاً'];
+function s6(g, lt) {
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  const sx = 540, sy = 560;
+  const m = ease(clamp(lt / 1.6));
+  const x = lerp(DOT.x, sx, m), y = lerp(DOT.y, sy, m), R = lerp(7, 150, ease(clamp((lt - .6) / 2.2)));
+  const dawn = smooth(.8, 4, lt);
+  // sky
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, `rgba(40,26,64,${dawn})`); sky.addColorStop(.3, `rgba(110,52,78,${dawn})`); sky.addColorStop(.46, `rgba(232,128,88,${dawn})`); sky.addColorStop(.47, `rgba(40,24,44,${dawn})`); sky.addColorStop(1, `rgba(16,12,24,${dawn})`);
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  // the old spiral, unwinding and letting go
+  g.save(); g.globalAlpha = .1 * dawn * (1 - smooth(6, 11, lt));
+  spiral(g, sx, sy, 1 + lt * .14, lt * .5, '#ffd9a6'); g.restore();
+  // sun
+  const halo = g.createRadialGradient(x, y, 0, x, y, R * 4.5); halo.addColorStop(0, 'rgba(255,214,150,.75)'); halo.addColorStop(.3, 'rgba(255,160,100,.28)'); halo.addColorStop(1, 'rgba(255,120,80,0)');
+  g.fillStyle = halo; g.fillRect(0, 0, W, H);
+  g.save(); g.shadowColor = '#ffe3b0'; g.shadowBlur = 60; g.fillStyle = lt < .8 ? '#f4f7ff' : '#ffe1a8'; ell(g, x, y, R, R); g.restore();
+  // horizon: the sun sits half behind it, he stands on it
+  const hy = 892;
+  g.fillStyle = `rgba(30,18,36,${dawn})`; g.fillRect(0, hy, W, H - hy);
+  g.fillStyle = `rgba(255,190,130,${dawn * .6})`; g.fillRect(0, hy, W, 3);
+  const ref = g.createLinearGradient(0, hy, 0, hy + 360); ref.addColorStop(0, `rgba(255,170,110,${.28 * dawn})`); ref.addColorStop(1, 'rgba(255,170,110,0)');
+  g.fillStyle = ref; poly(g, [[sx - 120, hy], [sx + 120, hy], [sx + 300, hy + 360], [sx - 300, hy + 360]]);
+  const fa = smooth(1.6, 3, lt);
+  if (fa > 0) { g.save(); g.globalAlpha = fa; litFigure(g, 540, hy + 2, .4, DARK, '#ffb36b', [[-2.5, -1], [2.5, -1], [0, -2.5]], { hands: 'side' }); g.restore(); }
+  beat(g, 'كيف تستعيد تركيزك؟', 540, 1060, lt, 2.2, { size: 70, font: DISP, w: 700, c: '#ffe2b0' });
+  TIPS.forEach((s, i) => {
+    const t0 = 3.2 + i * .9, k = easeOut((lt - t0) / .7); if (k <= 0) return;
+    const yy = 1190 + i * 120;
+    tipIcon(g, i, 880, yy - 14, k);
+    txt(g, s, 812, yy + (1 - k) * 24, { size: 40, c: '#f6e9dc', al: 'right', a: k, max: 700 });
+  });
+  beat(g, 'عقلك يستحق أكثر من تمريرة.', 540, 1748, lt, 7.6, { size: 62, font: DISP, w: 700, c: '#ffcf8a', sh: 'rgba(255,150,80,.45)' });
+  beat(g, 'تعفّن الدماغ · Brain Rot', 540, 1830, lt, 8.4, { size: 28, c: '#a48f8f' });
+}
+
+/* =====================================================================
+   timeline + compositing
+   ===================================================================== */
+const SC = [
+  { start: 0, fn: s1 }, { start: 10, fn: s2 }, { start: 20, fn: s3 },
+  { start: 31, fn: s4 }, { start: 42, fn: s5 }, { start: 52, fn: s6 },
+];
+const FADE = [0, .9, .9, .9, .9, 0];   // crossfade length into each scene (s6 is a hard cut from the dot)
+const TOTAL = 64;
+const sceneAt = T => { for (let i = SC.length - 1; i >= 0; i--) if (T >= SC[i].start) return i; return 0; };
+function drawScene(g, i, t) { g.save(); reset(g); SC[i].fn(g, t); g.restore(); reset(g); }
+function renderFrame(T) {
+  const i = sceneAt(T), lt = T - SC[i].start, f = FADE[i];
+  if (i > 0 && f > 0 && lt < f) {
+    drawScene(ctx, i - 1, T - SC[i - 1].start);
+    drawScene(bctx, i, lt);
+    ctx.globalAlpha = ease(lt / f); ctx.drawImage(BUF, 0, 0); ctx.globalAlpha = 1;
+  } else drawScene(ctx, i, lt);
+  vignette(ctx, i === 2 ? .25 : .5);
+  grain(ctx, T, i === 2 ? .16 : .12);
+}
+
+/* =====================================================================
+   sound: a drone, TV hiss and a warm chord at the end, all synthesized
+   ===================================================================== */
+let AC = null, AU = null;
+function audioInit() {
+  if (AC) return; AC = new (window.AudioContext || window.webkitAudioContext)();
+  const master = AC.createGain(); master.gain.value = .55; master.connect(AC.destination);
+  const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.connect(master);
+  const drone = AC.createGain(); drone.gain.value = 0; drone.connect(lp);
+  const oscs = [55, 82.4, 110.3].map((f, i) => { const o = AC.createOscillator(); o.type = i ? 'sawtooth' : 'sine'; o.frequency.value = f; const g = AC.createGain(); g.gain.value = i ? .12 : .6; o.connect(g); g.connect(drone); o.start(); return o; });
+  const lfo = AC.createOscillator(); lfo.frequency.value = .18; const lg = AC.createGain(); lg.gain.value = 180; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+  const nb = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const ns = AC.createBufferSource(); ns.buffer = nb; ns.loop = true; const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = .6;
+  const hiss = AC.createGain(); hiss.gain.value = 0; ns.connect(bp); bp.connect(hiss); hiss.connect(master); ns.start();
+  const wlp = AC.createBiquadFilter(); wlp.type = 'lowpass'; wlp.frequency.value = 1400; wlp.connect(master);
+  const warm = AC.createGain(); warm.gain.value = 0; warm.connect(wlp);
+  [196, 246.9, 293.7, 392].forEach((f, i) => { const o = AC.createOscillator(); o.type = 'triangle'; o.frequency.value = f; o.detune.value = (i - 1.5) * 4; const g = AC.createGain(); g.gain.value = .16; o.connect(g); g.connect(warm); o.start(); });
+  AU = { drone, hiss, warm, oscs };
+}
+function audioUpdate(T, on) {
+  if (!AU) return;
+  const i = sceneAt(T), lt = T - SC[i].start, now = AC.currentTime;
+  let dr = [.32, .3, .2, .26, .24, 0][i], hs = [.008, .03, .025, .015, .05, 0][i], wm = i === 5 ? .32 * smooth(.6, 3, lt) : 0;
+  if (i === 1 && [[3.9, 4.15], [6.6, 6.85], [8.3, 8.6], [9.2, 9.45]].some(([a, b]) => lt > a && lt < b)) hs = .14;
+  if (i === 4 && lt > 8.6) { dr = 0; hs = 0; }
+  if (!on) dr = hs = wm = 0;
+  AU.drone.gain.setTargetAtTime(dr, now, .25); AU.hiss.gain.setTargetAtTime(hs, now, .08); AU.warm.gain.setTargetAtTime(wm, now, .6);
+  AU.oscs[0].frequency.setTargetAtTime(i === 3 ? 49 : 55, now, 1);
+}
+
+/* =====================================================================
+   PLAYER
+   ===================================================================== */
+const stage = document.getElementById('stage'), controls = document.getElementById('controls');
+const pp = document.getElementById('pp'), rp = document.getElementById('rp'), snd = document.getElementById('snd'), bar = document.getElementById('bar'), fill = document.getElementById('fill'), timeEl = document.getElementById('time');
+function layout() { const aw = innerWidth - 32, ah = innerHeight - 24 - 52, w = Math.max(160, Math.min(aw, ah * 9 / 16)); stage.style.width = w + 'px'; stage.style.height = (w * 16 / 9) + 'px'; controls.style.width = Math.max(w, Math.min(aw, 340)) + 'px'; }
+addEventListener('resize', layout); layout();
+const q = new URLSearchParams(location.search);
+const CAPTURE = q.has('capture');
+let T = 0, playing = false, ended = false, last = 0, ready = false, sound = false;
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function setPlaying(p) { playing = p; pp.textContent = p ? '❚❚' : '▶'; pp.setAttribute('aria-label', p ? 'إيقاف مؤقت' : 'تشغيل'); }
+function tick(now) {
+  const dt = Math.min(.1, (now - last) / 1000 || 0); last = now;
+  if (ready && !CAPTURE) {
+    if (playing && !ended) { T += dt; if (T >= TOTAL) { T = TOTAL; ended = true; setPlaying(false); } }
+    renderFrame(Math.min(T, TOTAL - .001));
+    audioUpdate(T, sound && playing && !ended);
+    fill.style.width = (Math.min(T, TOTAL) / TOTAL * 100) + '%'; timeEl.textContent = `${fmt(Math.min(T, TOTAL))} / ${fmt(TOTAL)}`;
+  }
+  requestAnimationFrame(tick);
+}
+function replay() { T = 0; ended = false; setPlaying(true); }
+pp.addEventListener('click', () => { if (ended) { replay(); return; } setPlaying(!playing); });
+rp.addEventListener('click', replay);
+snd.addEventListener('click', () => { sound = !sound; snd.setAttribute('aria-pressed', String(sound)); if (sound) { try { audioInit(); AC.resume(); } catch (e) { sound = false; snd.setAttribute('aria-pressed', 'false'); } } });
+addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); pp.click(); } if (e.key === 'm' || e.key === 'M') snd.click(); });
+function seek(x) { const r = bar.getBoundingClientRect(); T = clamp((x - r.left) / r.width) * TOTAL; ended = T >= TOTAL; }
+bar.addEventListener('pointerdown', e => { bar.setPointerCapture(e.pointerId); seek(e.clientX); });
+bar.addEventListener('pointermove', e => { if (e.buttons) seek(e.clientX); });
+window.__frame = (t, type = 'image/jpeg') => { renderFrame(t); return art.toDataURL(type, .93); };
+window.__TOTAL = TOTAL;
+
+const fontLoads = [`700 80px "Reem Kufi"`, `400 40px "IBM Plex Sans Arabic"`, `600 40px "IBM Plex Sans Arabic"`, `500 46px "Noto Naskh Arabic"`].map(f => document.fonts.load(f, 'تعفّن الدماغ'));
+Promise.race([Promise.all(fontLoads).catch(() => {}), new Promise(r => setTimeout(r, 3500))]).then(() => {
+  ready = true; document.getElementById('loading').remove(); window.__ready = true;
+  if (q.has('t')) T = +q.get('t');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!CAPTURE) { if (still && !q.has('t')) T = 62; setPlaying(!still); }
+});
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
