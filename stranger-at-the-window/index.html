@@ -325,12 +325,15 @@ function buildHero() {
   const im = IMG.hero; if (!im) return;
   const w = im.width, h = im.height;
   HERO.full = stickerize(im, w, h, 9);
-  // head + shoulders, torn bottom
-  const ch = Math.round(h * .64), hh = stickerize(im, w, h, 9, ch);
-  const g = hh.c.getContext('2d'), R = mulberry32(4);
-  g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.moveTo(0, hh.pad + ch - 6);
-  for (let x = 0; x <= hh.c.width; x += 10) g.lineTo(x, hh.pad + ch - 10 + R() * 14 - 6);
-  g.lineTo(hh.c.width, hh.c.height); g.lineTo(0, hh.c.height); g.closePath(); g.fill();
+  const crop = (frac, seed) => {
+    const ch = Math.round(h * frac), hh = stickerize(im, w, h, 9, ch), g = hh.c.getContext('2d'), R = mulberry32(seed);
+    g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.moveTo(0, hh.pad + ch - 6);
+    for (let x = 0; x <= hh.c.width; x += 10) g.lineTo(x, hh.pad + ch - 10 + R() * 14 - 6);
+    g.lineTo(hh.c.width, hh.c.height); g.lineTo(0, hh.c.height); g.closePath(); g.fill();
+    return hh;
+  };
+  const hh = crop(.64, 4);
+  HERO.face = crop(.5, 8);     // head + shmagh only, for the big-head runner
   HERO.head = hh; HERO.w = w; HERO.h = h;
 }
 // draw the hero photo. anchor: image-normalised (ax, ay) placed at (x, y); width = image width in px
@@ -578,25 +581,45 @@ function cop(g, x, y, s, st = {}) {
   return hand;
 }
 /* The hero: the photo head on a cut-paper bisht and thobe, coffee in hand. Origin: hip. */
+function goldTrim(g, path, o = {}) {
+  // braided gold zari band like the photo's bisht: gold base, darker hatch, light edge
+  part(g, path, '#d9a63a', { rim: 0, shadow: false, ht: .2 });
+  g.save(); g.clip(path); g.strokeStyle = 'rgba(120,80,20,.55)'; g.lineWidth = 2;
+  for (let k = -300; k < 300; k += 7) { g.beginPath(); g.moveTo(k, -300); g.lineTo(k + 300, 300); g.stroke(); }
+  g.strokeStyle = 'rgba(255,236,170,.7)'; g.lineWidth = 2.5; g.stroke(path); g.restore();
+}
+/* The hero: a big photo head on a small cut-paper body — white thobe, black bisht with
+   gold zari trim, wide sleeves, leather shoes — coffee in hand. Origin: hip (feet ~ +184). */
 function heroRunner(g, x, y, s, st = {}) {
-  const ph = st.ph || 0, amt = st.run ?? 0, flip = st.flip ? -1 : 1;
-  g.save(); g.translate(x, y); g.scale(s * flip, s); g.rotate(st.lean || 0);
-  const lo = { L1: 88, L2: 92, w: 32, col: '#efeae0', farCol: '#d8d2c6', shoe: '#5a3a24', shoeFar: '#3f2817', air: st.air };
-  const ao = { A1: 72, A2: 66, aw: 36, armCol: '#1c1a1f', armFar: '#141216', hand: C.heroSkin, armA: st.armA, armB: st.armB };
-  armSwing(g, -10, -190, ph, amt, ao, 0);
+  const ph = st.ph || 0, amt = st.run ?? 0, flip = st.flip ? -1 : 1, ln = st.lean || 0;
+  g.save(); g.translate(x, y); g.scale(s * flip, s); g.translate(0, 84); g.rotate(ln * .8);
+  const bob = amt ? Math.abs(Math.sin(ph)) * 4 : 0;
+  const lo = { L1: 48, L2: 52, w: 30, col: '#f4f0e7', farCol: '#d9d3c7', shoe: '#6b4226', shoeFar: '#4a2c18', air: st.air };
+  const ao = { A1: 46, A2: 40, aw: 34, armCol: '#1d1b20', armFar: '#141217', hand: C.heroSkin, armA: st.armA, armB: st.armB };
+  // far sleeve
+  armSwing(g, -14, -118, ph, amt, ao, 0);
   legPair(g, ph, amt, lo);
-  // thobe skirt + bisht
-  part(g, P(-50, -60, 50, -60, 62, 70, -62, 70), '#f1ece2', { rim: 4, ht: .12 });
-  const flap = amt * (18 + Math.sin(ph * 2) * 10);
-  part(g, P(-66, -220, 62, -220, 74, 40, 30, 50, -84 - flap, 46, -76, -60), '#1c1a1f', { rim: 5, ht: .12 });
-  part(g, P(20, -220, 34, -220, 46, 44, 32, 46), C.mustard, { rim: 0, shadow: false, ht: .35 });
-  part(g, P(-30, -220, -16, -220, -40, 40, -56, 42), C.mustard, { rim: 0, shadow: false, ht: .35 });
-  // photo head + shoulders
-  const bw = 250, hdy = st.headDy || 0;
-  heroImg(g, 'head', 0, -214 + hdy, bw, .5, HA.shoulderY, st.headRot || 0);
-  // coffee arm
-  const hand = armSwing(g, 14, -190, ph, amt, Object.assign({}, ao, { armA: st.cupArm || [0, 1.9], armB: st.cupArmB || [0, .9] }), 1);
-  if (st.cup !== false) { g.save(); g.translate(hand[0], hand[1] - 4); g.rotate(-(st.lean || 0)); cup(g, 0, 26, .42); if (st.steam) steam(g, 0, -14, st.steam, .35, .8); g.restore(); }
+  // thobe: white tunic with a little flare that swings
+  const sw = amt * Math.sin(ph * 2) * 6;
+  part(g, P(-40, -132, 40, -132, 50, -20, 56 + sw, 22, -56 + sw, 22, -50, -20), '#f6f2ea', { rim: 4, ht: .1, shade: [-56, 0, 56, 0] });
+  g.strokeStyle = 'rgba(120,110,95,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(6, -130); g.lineTo(6, -60); g.stroke();
+  g.fillStyle = 'rgba(120,110,95,.8)'; for (const by of [-112, -94, -76]) { g.beginPath(); g.arc(6, by, 2.6, 0, TAU); g.fill(); }
+  // bisht: black cloak over the shoulders, open at the front, trailing behind when running
+  const flap = amt * (16 + Math.sin(ph * 2) * 9) + (st.air ? 14 : 0);
+  const back = P(-30, -140, -58, -128, -70, -60, -76 - flap, 8, -86 - flap * 1.4, 30, -36, 26, -26, -40);
+  part(g, back, '#1d1b20', { rim: 5, ht: .14, shade: [-90, 0, 0, 0] });
+  const front = P(18, -140, 52, -130, 62, -50, 66 + sw * .5, 24, 34, 28, 22, -40);
+  part(g, front, '#232027', { rim: 4, ht: .14 });
+  goldTrim(g, P(-34, -140, -24, -140, -22, 24, -34, 26));
+  goldTrim(g, P(18, -140, 28, -140, 36, 26, 24, 28));
+  goldTrim(g, P(-86 - flap * 1.4, 26, -36, 22, -36, 30, -84 - flap * 1.4, 36));
+  // the big head (photo): head + shmagh, chin sits at the neck
+  const hb = st.headDy || 0;
+  heroImg(g, 'face', 2, -116 - bob + hb, 520, .5, .5, (st.headRot || 0) - ln * .5 + jit(st.ph || 0, 4, .01));
+  // near sleeve with gold cuff, holding the coffee
+  const cupA = st.cupArm || [.1, 1.0], cupB = st.cupArmB || [0, .8];
+  const hand = armSwing(g, 22, -118, ph, amt, Object.assign({}, ao, { armA: cupA, armB: cupB }), 1);
+  if (st.cup !== false) { g.save(); g.translate(hand[0], hand[1] - 4); g.rotate(-ln * .8); cup(g, 0, 24, .36); if (st.steam) steam(g, 0, -12, st.steam, .3, .8); g.restore(); }
   g.restore();
   return hand;
 }
@@ -1010,7 +1033,7 @@ function sBurst(g, lt) {
   if (dOpen > .5) {
     const hxp = t < 2.9 ? lerp(560, 600, smooth(.45, .8, t)) : lerp(600, 1400, easeIn((t - 2.9) / .9));
     const run = t >= 2.9;
-    heroRunner(g, hxp, 1290, .95, { run: run ? 1 : 0, ph: t * 34, lean: run ? .18 : 0, cupArm: run ? null : [0, -1.6], cupArmB: run ? null : [0, .2], steam: lt });
+    heroRunner(g, hxp, 1290, .95, { run: run ? 1 : 0, ph: t * 34, lean: run ? .18 : 0, cupArm: run ? null : [0, 1.5], cupArmB: run ? null : [0, .1], steam: lt });
     if (t > .55 && t < 2.6) bubble(g, 'HEY!', hxp - 160, 760, { size: 78, scale: pop(lt, .55, .2), rot: -.1, tail: 1, seed: 5 });
   }
   if (t > .3 && t < .9) burst(g, 'BAM!', 600, 620, 150, C.mustard, { scale: pop(lt, .3, .15), rot: -.15, size: 72 });

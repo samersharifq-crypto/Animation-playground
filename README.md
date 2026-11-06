@@ -71,7 +71,7 @@ Open `steve-jobs/index.html` to play it (space = play/pause, M = sound, click th
 
 ## stranger-at-the-window/ — *The Stranger at the Window*
 
-A 68-second vertical (9:16) cut-paper collage thriller with a comic chase. It borrows from the reference collages: grid paper, a mustard sun, torn grey cardboard and kraft, torn watercolour strips, a torn hole in a face, a giant hand reaching in from above, halftone cut-outs with white scissor borders and ransom-note type. Characters move on twelves, like stop-motion, and the camera moves smoothly. The hero is a real photo cut-out (`img/hero.png`, supplied by the author) on a cut-paper bisht and thobe. Everything else is drawn live on canvas.
+A 68-second vertical (9:16) cut-paper collage thriller with a comic chase. It borrows from the reference collages: grid paper, a mustard sun, torn grey cardboard and kraft, torn watercolour strips, a torn hole in a face, a giant hand reaching in from above, halftone cut-outs with white scissor borders and ransom-note type. Characters move on twelves, like stop-motion, and the camera moves smoothly. The hero is a real photo cut-out (`img/hero.png`, supplied by the author). In the running scenes he has a big photo head on a small cut-paper body: a white thobe, a black bisht with braided gold trim, and leather shoes. Everything else is drawn live on canvas.
 
 1. **Title**: ransom-note letters over the sun, a case-file strip, and a pair of sunglasses peeking up. A magnifying glass swallows the frame.
 2. **Café Rosa**: he sips coffee and reads *How to Spot a Spy*. Outside the glass a stranger keeps popping up behind a newspaper with two eye-holes, from below, upside down and from the side. He ducks every time the reader turns. Freeze frame: SUSPECT / WITNESS.
