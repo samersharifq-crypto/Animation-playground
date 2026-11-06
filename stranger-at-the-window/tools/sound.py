@@ -236,6 +236,14 @@ for a in cues['moon']:
 for a in cues['click']: add(cuffclick(), a, .6)
 for a in cues['shutter']: add(shutter(), a, .45)
 for a in cues['chime']: add(chime(), a, .3, pan=.4)
+def honk(dd=.22):
+    x = ts(dd); s = np.sign(np.sin(2 * np.pi * 410 * x)) * .5 + np.sign(np.sin(2 * np.pi * 515 * x)) * .5
+    return filt(s, 200, 2500) * np.minimum(1, x / .01) * np.minimum(1, (dd - x) / .02)
+for a in cues.get('honk', []): add(honk(), a, .22, pan=.3)
+def carby(dd=1.6):
+    x = ts(dd); s = filt(noise(dd), 60, 600) * 1.5 + np.sin(2 * np.pi * np.cumsum(70 + 20 * np.sin(np.pi * x / dd)) / SR) * .4
+    return s * np.sin(np.pi * x / dd) ** 2
+for i, a in enumerate(cues.get('cars', [])): add(carby(), a, .3, pan=(-.5 if i % 2 else .5))
 STP = step()
 for a, b2 in cues['steps']:
     k = a; i = 0
