@@ -46,10 +46,14 @@ const dir = path.join(__dirname, '..'), fps = 12;
     '-shortest', '-movflags', '+faststart', main]);
   // 16:9 and square: the vertical film mounted on kraft paper with a white paper border
   for (const [name, W, H] of [['16x9', 1920, 1080], ['1x1', 1080, 1080]]) {
-    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', main, '-f', 'lavfi', '-i', `color=c=0xa9845a:s=${W}x${H}:r=24`, '-filter_complex',
-      `[1]noise=alls=18:allf=t,format=yuv420p[bg];[0]scale=-2:${H - 64},pad=iw+20:ih+20:10:10:color=0xfbf8f1,rotate=-0.012:c=none:ow=rotw(-0.012):oh=roth(-0.012)[v];[bg][v]overlay=(W-w)/2:(H-h)/2:shortest=1`,
+    // a still sheet of grainy kraft paper (a still background keeps the files small)
+    const bg = path.join(dir, `.bg-${name}.png`);
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', `color=c=0xa9845a:s=${W}x${H}`, '-vf', 'noise=alls=14,gblur=sigma=0.6', '-frames:v', '1', bg]);
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', main, '-loop', '1', '-framerate', '24', '-i', bg, '-filter_complex',
+      `[0]scale=-2:${H - 64},pad=iw+20:ih+20:10:10:color=0xfbf8f1,rotate=-0.012:c=none:ow=rotw(-0.012):oh=roth(-0.012)[v];[1][v]overlay=(W-w)/2:(H-h)/2:shortest=1,format=yuv420p`,
       '-map', '0:a', '-c:v', 'libx264', '-preset', 'slow', '-crf', '24', '-pix_fmt', 'yuv420p', '-c:a', 'copy', '-movflags', '+faststart',
       path.join(dir, `torn-paper-lucid-${name}.mp4`)]);
+    fs.unlinkSync(bg);
   }
   fs.unlinkSync(audio);
   for (const f of [silent, wav, cues]) fs.unlinkSync(f);
