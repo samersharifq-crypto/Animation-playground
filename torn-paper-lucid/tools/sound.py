@@ -2,7 +2,7 @@
 # The music follows the film's trip curve: a calm plucked lullaby at first, then the tape starts
 # to wow and drift, a slow heartbeat comes in, detuned drones and a high glassy shimmer swell,
 # reversed swells rise into each tear, and it all settles to one clear note at the end.
-# Effects (slaps, rips, swishes, taps, eyes popping open, glitches, flashes...) sit on the cues.
+# Effects (slaps, rips, swishes, taps, eyes popping open, glints, glitches, flashes...) sit on the cues.
 # usage: python3 sound.py cues.json out.wav      (numpy only)
 import sys, json, wave, numpy as np
 
@@ -122,12 +122,14 @@ def shift():                                   # tape-stop glitch for the slidin
     d = .35; x = ts(d); f = 300 * np.exp(-x * 6)
     s = np.sign(np.sin(2 * np.pi * np.cumsum(f) / SR)) * .3 + filt(noise(d), 800, 6000) * .4
     return s * (np.sin(2 * np.pi * 24 * x) > 0) * np.exp(-x * 4)
+def glint():                                   # a light catching the sunglasses
+    x = ts(.6); return sum(np.sin(2 * np.pi * midi(m) * x) for m in (93, 100)) * np.exp(-x * 7) * .4 * np.minimum(1, x / .01)
 def flash():
     x = ts(.25); return (filt(noise(.25), 3000, 14000) + np.sin(2 * np.pi * 2200 * x) * .3) * np.exp(-x * 14)
 
 FX = {'slap': (slap, .3), 'rip': (rip, .55), 'whoosh': (whoosh, .3), 'swish': (swish, .18), 'thump': (thump, .45),
       'tap': (tap, .6), 'pop': (pop, .45), 'step': (step, .16), 'creak': (creak, .14), 'unroll': (unroll, .22),
-      'pass': (whoosh, .15), 'blink': (blink, .3), 'eye': (eye, .22), 'shift': (shift, .4), 'flash': (flash, .35)}
+      'pass': (whoosh, .15), 'blink': (blink, .3), 'eye': (eye, .22), 'shift': (shift, .4), 'flash': (flash, .35), 'glint': (glint, .14)}
 for c in data['cues']:
     fn, g = FX[c['type']]
     put(mix, fn(), c['t'], g * rng.uniform(.85, 1.1), pan=rng.uniform(-.35, .35))
