@@ -145,6 +145,17 @@
     background-image: linear-gradient(90deg, transparent 0 34%, #b6b13a 34% 52%, transparent 52% 70%, #c8553d 70% 100%),
       repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 2px, transparent 2px 12px), var(--grain);
     background-size: 100% 46%, auto, auto; background-repeat: repeat-y, repeat, repeat; }
+  /* tunnel vision between scenes */
+  #tunnel { position: absolute; inset: 0; z-index: 900; pointer-events: none; display: none; overflow: hidden; }
+  #tunnel > div { position: absolute; }
+  .tring { left: 40px; top: 460px; width: 1000px; height: 1000px; border-radius: 50%; opacity: 0; }
+  .tlines { left: -660px; top: -240px; width: 2400px; height: 2400px; border-radius: 50%; opacity: 0;
+    background: repeating-conic-gradient(from 0deg, transparent 0 5deg, rgba(251,248,241,.55) 5deg 5.5deg, transparent 5.5deg 11deg, rgba(227,180,72,.4) 11deg 11.4deg);
+    -webkit-mask-image: radial-gradient(circle, transparent 0 7%, #000 32%); mask-image: radial-gradient(circle, transparent 0 7%, #000 32%); }
+  .tvig { left: -3460px; top: -3040px; width: 8000px; height: 8000px; opacity: 0;
+    background: radial-gradient(circle, transparent 0 14%, rgba(12,9,7,.55) 17%, #0c0907 23%); }
+  .tlight { left: 340px; top: 760px; width: 400px; height: 400px; border-radius: 50%; opacity: 0;
+    background: radial-gradient(circle, #fffaf0 0 12%, rgba(255,236,190,.7) 30%, rgba(255,220,150,0) 70%); mix-blend-mode: screen; }
   #grain {
     position: absolute; inset: -60px;
     background-image: var(--grain); opacity: .3;
@@ -199,7 +210,7 @@
     <feColorMatrix class="sat" in="h" type="saturate" values="1"/>
   </filter>
 </defs></svg>
-<div id="stage"><div id="film"></div><div id="grain"></div><div id="flick"></div></div>
+<div id="stage"><div id="film"></div><div id="tunnel"></div><div id="grain"></div><div id="flick"></div></div>
 <div id="ui">
   <button id="playBtn" aria-label="Play / Pause">▶</button>
   <button id="restartBtn" aria-label="Restart">↺</button>
@@ -388,15 +399,72 @@ function handHTML({ tipX, tipY, cls = "hand" }) {
    THE MAN — a poker-faced collage portrait (front) and a
    jointed paper puppet (profile) for the walking shots
    ============================================================ */
-/* His real face: the photo cut-out, with glints that sweep across the sunglasses
-   (they stand in for blinks) and lenses that can fill with a slow spiral */
-function lensHTML(cx, cy) {
-  return div("lens", `${box(cx - 82, cy - 56, 164, 112)}overflow:hidden;border-radius:46% 46% 52% 52% / 40% 40% 62% 62%`,
-    div("lensfx round", `${box(-18, -44, 200, 200)}opacity:0;mix-blend-mode:screen;background:repeating-conic-gradient(rgba(240,185,56,.9) 0 14deg, rgba(200,85,61,.0) 14deg 28deg)`) +
-    div("glint", `${box(-130, -60, 46, 240)}background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);transform:rotate(24deg);mix-blend-mode:screen`));
+const F = {
+  head: "M300 130 C402 130 456 212 452 322 C449 424 418 492 368 536 C344 557 322 566 300 566 C278 566 256 557 232 536 C182 492 151 424 148 322 C144 212 198 130 300 130 Z",
+  hair: "M146 318 C134 180 214 104 312 106 C410 108 470 186 454 318 C446 246 424 206 382 192 C334 176 262 178 220 196 C182 214 158 262 146 318 Z",
+  neck: "M244 520 L250 640 L350 640 L356 520 Z",
+  suit: "M30 780 C40 690 110 650 200 630 L250 610 L350 610 L400 630 C490 650 560 690 570 780 Z",
+  eyeL: "M203 312 Q240 290 277 312 Q240 330 203 312 Z",
+  eyeR: "M323 312 Q360 290 397 312 Q360 330 323 312 Z"
+};
+/* one eye: white, iris (moves), heavy poker lid, lash line, crease, and a blink lid */
+function eyeSVG(cx, path, u) {
+  const d = cx - 240;
+  const lid = `M${201 + d} 312 Q${240 + d} 286 ${279 + d} 312 Q${240 + d} 302 ${201 + d} 312 Z`;
+  return `<path d="${path}" fill="#f4efe6"/>
+    <g clip-path="url(#fclip${cx}${u})">
+      <g class="iris"><circle cx="${cx}" cy="314" r="14.5" fill="#5a4330" stroke="#24170e" stroke-width="2"/>
+        <circle cx="${cx}" cy="314" r="6.5" fill="#120c08"/><circle cx="${cx + 5}" cy="309" r="3" fill="#fff"/></g>
+      <path d="${lid}" fill="#c08f68"/>
+      <path class="blink" data-sy="0" d="M${199 + d} 288 H${281 + d} V332 H${199 + d} Z" fill="#c69670" style="transform-box:fill-box;transform-origin:50% 0;transform:scaleY(0)"/>
+    </g>
+    <path d="M${203 + d} 312 Q${240 + d} 301 ${277 + d} 312" fill="none" stroke="#2a1a12" stroke-width="4" stroke-linecap="round"/>
+    <path d="M${207 + d} 298 Q${240 + d} 280 ${273 + d} 298" fill="none" stroke="#8a5f42" stroke-width="2.5"/>
+    <path d="M${212 + d} 327 Q${240 + d} 337 ${268 + d} 327" fill="none" stroke="#a87b58" stroke-width="1.6" opacity=".6"/>`;
 }
+let faceN = 0;
 function faceSVG() {
-  return `<img src="img/face.png" alt="" style="position:absolute;left:50px;top:-26px;width:500px;height:806px">` + lensHTML(198, 299) + lensHTML(411, 299);
+  const u = "_" + (faceN++);
+  return `<svg width="600" height="780" viewBox="0 0 600 780" style="overflow:visible;position:absolute;left:0;top:0">
+  <defs>
+    <pattern id="fht${u}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="4" cy="4" r="2.1" fill="#3a2418" fill-opacity=".22"/></pattern>
+    <pattern id="fhs${u}" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="3.5" cy="3.5" r="1.8" fill="#000" fill-opacity=".3"/></pattern>
+    <radialGradient id="fskin${u}" cx=".42" cy=".38" r=".72"><stop offset="0" stop-color="#e6c4a0"/><stop offset=".7" stop-color="#cc9d74"/><stop offset="1" stop-color="#a5764f"/></radialGradient>
+    <clipPath id="fclipH${u}"><path d="${F.head}"/></clipPath>
+    <clipPath id="fclip240${u}"><path d="${F.eyeL}"/></clipPath><clipPath id="fclip360${u}"><path d="${F.eyeR}"/></clipPath>
+  </defs>
+  <g fill="#fbf8f1" stroke="#fbf8f1" stroke-width="24" stroke-linejoin="round">
+    <path d="${F.suit}"/><path d="${F.neck}"/><path d="${F.head}"/><ellipse cx="150" cy="340" rx="22" ry="44"/><ellipse cx="450" cy="340" rx="22" ry="44"/><path d="${F.hair}"/></g>
+  <path d="${F.suit}" fill="#2a3142"/><path d="${F.suit}" fill="url(#fhs${u})"/>
+  <path d="M200 630 L250 610 L300 760 L240 700 Z" fill="#3a4560"/><path d="M400 630 L350 610 L300 760 L360 700 Z" fill="#3a4560"/>
+  <path d="M250 610 L300 700 L350 610 Z" fill="#efe9dc"/>
+  <path d="M290 640 L310 640 L318 730 L300 760 L282 730 Z" fill="#7a2e2a"/>
+  <path d="M250 610 L282 662 L300 640 Z" fill="#fbf8f1"/><path d="M350 610 L318 662 L300 640 Z" fill="#fbf8f1"/>
+  <path d="${F.neck}" fill="#b4835e"/><path d="M244 520 Q300 600 356 520 L356 566 Q300 620 244 566 Z" fill="#8c5f40" opacity=".55"/>
+  <ellipse cx="150" cy="340" rx="22" ry="44" fill="#bf8e66"/><ellipse cx="450" cy="340" rx="22" ry="44" fill="#b4835e"/>
+  <path d="M146 318 Q138 340 150 372 M454 318 Q462 340 450 372" fill="none" stroke="#8c5f40" stroke-width="4"/>
+  <path d="${F.head}" fill="url(#fskin${u})"/>
+  <g clip-path="url(#fclipH${u})"><rect x="338" y="120" width="140" height="460" fill="url(#fht${u})"/>
+    <ellipse cx="300" cy="545" rx="70" ry="22" fill="url(#fht${u})"/><ellipse cx="205" cy="400" rx="34" ry="22" fill="#d98e7a" opacity=".22"/><ellipse cx="395" cy="400" rx="34" ry="22" fill="#d98e7a" opacity=".22"/></g>
+  <path d="${F.hair}" fill="#1d1a17"/><path d="M262 120 Q250 150 236 196" fill="none" stroke="#3a3631" stroke-width="3"/>
+  <path d="M200 272 Q238 263 278 268 L278 279 Q238 275 200 284 Z" fill="#2a1d16"/>
+  <path d="M322 268 Q362 263 400 272 L400 284 Q362 275 322 279 Z" fill="#2a1d16"/>
+  ${eyeSVG(240, F.eyeL, u)}${eyeSVG(360, F.eyeR, u)}
+  <path d="M312 314 C316 345 322 370 332 392" fill="none" stroke="#9c6c48" stroke-width="7" opacity=".45" stroke-linecap="round"/>
+  <path d="M268 392 C272 380 284 376 292 382 C296 372 304 372 308 382 C316 376 328 380 332 392 C330 406 316 412 300 410 C284 412 270 406 268 392 Z" fill="#c08e67"/>
+  <ellipse cx="300" cy="390" rx="10" ry="6" fill="#efcfac" opacity=".75"/>
+  <ellipse cx="285" cy="399" rx="8" ry="3.6" fill="#4a2a1c"/><ellipse cx="315" cy="399" rx="8" ry="3.6" fill="#4a2a1c"/>
+  <path d="M294 420 L292 448 M306 420 L308 448" stroke="#a87a56" stroke-width="2" opacity=".55"/>
+  <path d="M248 458 Q272 448 290 452 Q300 447 310 452 Q328 448 352 458 Q300 463 248 458 Z" fill="#a05e55"/>
+  <path d="M252 459 Q300 464 348 459 Q330 482 300 484 Q270 482 252 459 Z" fill="#b97569"/>
+  <ellipse cx="300" cy="472" rx="20" ry="4" fill="#d9a296" opacity=".6"/>
+  <path d="M246 458 Q300 465 354 458" fill="none" stroke="#5a2e28" stroke-width="3" stroke-linecap="round"/>
+  </svg>`;
+}
+/* the same drawn head, without the suit, for the walking puppet */
+function headSVG() {
+  return faceSVG().replace('width="600" height="780" viewBox="0 0 600 780"', 'width="96" height="138" viewBox="126 96 348 500"')
+    .replace(/<path d="M30 780[^>]*\/>/g, "").replace("overflow:visible", "overflow:hidden");
 }
 /* The portrait, cut into strips so it can slice and slide like the tower: mode "h" = bands, "v" = halves */
 function portraitHTML({ x, y, s = 1, cls = "", mode = "h", n = 8, origin = "50% 100%" }) {
@@ -461,7 +529,7 @@ function walkerHTML({ x, foot, s = 1, cls = "", outfit = "hero", style = "" }) {
         div("", `${box(60, 0, 2, 350)}background:rgba(0,0,0,.25)`) + div("", `${box(166, 0, 2, 350)}background:rgba(0,0,0,.25)`) +
         div("", `${box(150, 250, 10, 10)}background:#1d1a17;border-radius:50%`) + div("", `${box(150, 300, 10, 10)}background:#1d1a17;border-radius:50%`)) +
       arm("F", 270) +
-      `<img src="img/head.png" alt="" style="position:absolute;left:105px;top:38px;width:90px;height:136px;filter:drop-shadow(0 4px 3px rgba(0,0,0,.35))">`),
+      `<div class="a" style="${box(102, 34, 96, 138)}filter:drop-shadow(0 4px 3px rgba(0,0,0,.35))">${headSVG()}</div>`),
     `data-s="${s}"`);
 }
 
@@ -482,11 +550,18 @@ function walkKeys(keys, pre, s, e, period = 1, lag = 0) {
   keys(`${pre} .farmB`, "rotation", p => -8 - 18 * Math.max(0, Math.cos(2 * Math.PI * p)), s, e, period, lag);
   keys(`${pre} .wbody`, "y", p => -7 * Math.pow(Math.sin(2 * Math.PI * p), 2), s, e, period / 2, lag * 2);
 }
-/* a window that opens into his eye behind the sunglasses */
+/* a window that opens into one of his eyes */
 function winEyeHTML(W, H, k) {
-  return div(`weye o${k}`, `inset:0;background:url(img/eye.jpg) 50% 50% / cover;opacity:0`,
-    `<div class="a" style="inset:0;background-image:var(--grain)"></div>` +
-    div("wglint", `${box(-90, -40, 34, H + 80)}background:linear-gradient(90deg,transparent,rgba(255,255,255,.8),transparent);transform:rotate(24deg);mix-blend-mode:screen`));
+  return div(`weye o${k}`, `inset:0;background-color:#cc9d74;background-image:var(--grain);opacity:0`,
+    `<svg width="${W}" height="${H}" viewBox="0 0 120 80" preserveAspectRatio="none" style="position:absolute;left:0;top:0">
+      <defs><clipPath id="we${k}"><path d="M14 44 Q60 14 106 44 Q60 68 14 44 Z"/></clipPath></defs>
+      <path d="M12 22 Q60 6 108 20 L108 27 Q60 16 12 30 Z" fill="#2a1d16"/>
+      <path d="M14 44 Q60 14 106 44 Q60 68 14 44 Z" fill="#f4efe6"/>
+      <g clip-path="url(#we${k})"><g class="wiris"><circle cx="60" cy="45" r="16" fill="#5a4330" stroke="#24170e" stroke-width="2"/><circle cx="60" cy="45" r="7" fill="#120c08"/><circle cx="65" cy="40" r="3" fill="#fff"/></g>
+        <path d="M10 44 Q60 10 110 44 Q60 30 10 44 Z" fill="#b88660"/>
+        <path class="wblink" data-sy="0" d="M10 10 H110 V70 H10 Z" fill="#c69670" style="transform-box:fill-box;transform-origin:50% 0;transform:scaleY(0)"/></g>
+      <path d="M14 44 Q60 30 106 44" fill="none" stroke="#2a1a12" stroke-width="3.5"/>
+    </svg>`);
 }
 
 /* Things that pass by (scene 5) */
@@ -574,9 +649,11 @@ const SCENES = [
       on(".cloud", "from", { x: i => (i ? 700 : -700), duration: 2.4, ease: "power2.out" }, s + .8);
       on(".side", "from", { y: 700, duration: .5, ease: "back.out", stagger: .22 }, s + 2.6);
       on(".sun", "from", { y: 360, duration: 1.8, ease: "power2.out" }, s + 2.8);
-      on(".glint", "fromTo", { from: { x: 0 }, x: 420, duration: .3, ease: "power2.in" }, s + 1.4);
-      on(".glint", "fromTo", { from: { x: 0 }, x: 420, duration: .3, ease: "power2.in" }, s + 3.1);
-      cue("glint", s + 1.4); cue("glint", s + 3.1);
+      on(".iris", "to", { x: -9, duration: .4 }, s + 1.2);
+      on(".iris", "to", { x: 9, duration: .5 }, s + 2.6);
+      on(".iris", "to", { x: 0, duration: .25 }, s + 3.6);
+      on(".blink", "to", { sy: 1, duration: .08 }, s + 3.1); on(".blink", "to", { sy: 0, duration: .1 }, s + 3.25);
+      cue("blink", s + 3.1);
       // the reference's slice move, on his face: the bands slide apart and back
       on(".pstrip", "to", { x: i => (i % 2 ? 1 : -1) * r(30, 70), duration: .25, ease: "power2.out", stagger: .05 }, s + L - 1.7);
       on(".pstrip", "to", { x: 0, duration: .3, ease: "back.out", stagger: .05 }, s + L - 1.0);
@@ -670,11 +747,11 @@ const SCENES = [
       order.forEach((k, i) => { on(`.weye.o${k}`, "fromTo", { from: { opacity: 0 }, opacity: 1, duration: .01 }, s + 3.3 + i * .07); });
       for (let i = 0; i < 29; i += 3) cue("eye", s + 3.3 + i * .07);
       on(".veil", "to", { opacity: 0, duration: .4 }, s + 3.3);
-      on(".weye", "to", { scale: 1.12, duration: .3, ease: "power2.out" }, s + 5.5);
-      on(".weye", "to", { scale: 1, duration: .3 }, s + 5.9);
-      on(".wglint", "fromTo", { from: { x: 0 }, x: 260, duration: .3, ease: "power2.in" }, s + 6.0);
-      on(".wglint", "fromTo", { from: { x: 0 }, x: 260, duration: .3, ease: "power2.in" }, s + L - .6);
-      cue("glint", s + 6.0); cue("glint", s + L - .6);
+      on(".wiris", "to", { x: -14, duration: .2 }, s + 5.5);
+      on(".wiris", "to", { x: 14, duration: .3 }, s + 5.95);
+      on(".wiris", "to", { x: 0, duration: .15 }, s + 6.4);
+      on(".wblink", "to", { sy: 1, duration: .08 }, s + L - .5); on(".wblink", "to", { sy: 0, duration: .1 }, s + L - .36);
+      cue("blink", s + L - .5);
       on(".art", "to", { scale: 1.08, duration: L - 2.4, ease: "power2.out" }, s + 2.3);
     } },
 
@@ -745,8 +822,8 @@ const SCENES = [
         div("flash", "inset:0;background:#fff;mix-blend-mode:difference;opacity:0");
     },
     anim(on, s, L, cue, swing, keys) {
-      on(".glint", "fromTo", { from: { x: 0 }, x: 420, duration: .3, ease: "power2.in" }, s + .5);
-      cue("glint", s + .5);
+      on(".blink", "to", { sy: 1, duration: .08 }, s + .5); on(".blink", "to", { sy: 0, duration: .1 }, s + .62);
+      cue("blink", s + .5);
       // the face multiplies outward like a tunnel of itself
       keys(".echo", "rotation", p => 6 * Math.sin(2 * Math.PI * p), s, s + L + 1, 3.2);
       [0, 1, 2].forEach(k => keys(`.e${k}`, "scale", p => 1 + .1 * Math.sin(2 * Math.PI * (p + k * .25)), s, s + L + 1, 2.4));
@@ -755,12 +832,12 @@ const SCENES = [
       walkKeys(keys, ".t8", s, s + L + 1, .9);
       on(".t1, .t6", "to", { sy: -.6, duration: .17 }, s + 1.2); on(".t1, .t6", "to", { sy: 1, duration: .17 }, s + 1.4);
       on(".t1, .t6", "to", { sy: -.6, duration: .17 }, s + 1.9); on(".t1, .t6", "to", { sy: 1, duration: .17 }, s + 2.1);
-      // the lenses fill with a slow spiral while the world parades past them
-      on(".lensfx", "fromTo", { from: { opacity: 0 }, opacity: .7, duration: .4 }, s + 1.6);
-      keys(".lensfx", "rotation", p => p * 360, s, s + L + 1, 2.5);
-      on(".lensfx", "to", { opacity: 0, duration: .4 }, s + L - 1.4);
-      for (let k = 0; k < 4; k++) on(".big .glint", "fromTo", { from: { x: 0 }, x: 420, duration: .3, ease: "power2.in" }, s + 1.4 + k * 1.1);
-      for (let k = 0; k < 4; k++) cue("glint", s + 1.4 + k * 1.1);
+      on(".big .iris", "to", { x: 9, duration: .4 }, s + .9);
+      for (let k = 0; k < 4; k++) {
+        on(".big .iris", "to", { x: -10, duration: 1.0, ease: "none" }, s + 1.3 + k * 1.2);
+        on(".big .iris", "to", { x: 9, duration: .2 }, s + 2.3 + k * 1.2);
+      }
+      on(".big .iris", "to", { x: 0, duration: .2 }, s + L - 1.3);
       // the face splits down the middle and slides out of register
       on(".big .ps0", "to", { y: -46, x: -14, duration: .3, ease: "power2.out" }, s + 2.4);
       on(".big .ps1", "to", { y: 46, x: 14, duration: .3, ease: "power2.out" }, s + 2.4);
@@ -770,8 +847,8 @@ const SCENES = [
       on(".big .pstrip", "to", { y: 0, x: 0, duration: .3, ease: "back.out" }, s + 4.8);
       cue("shift", s + 4.8);
       [3.0, 3.25, 4.4].forEach(d => { on(".flash", "to", { opacity: 1, duration: .01 }, s + d); on(".flash", "to", { opacity: 0, duration: .01 }, s + d + .09); cue("flash", s + d); });
-      on(".glint", "fromTo", { from: { x: 0 }, x: 420, duration: .3, ease: "power2.in" }, s + L - .9);
-      cue("glint", s + L - .9);
+      on(".blink", "to", { sy: 1, duration: .08 }, s + L - .9); on(".blink", "to", { sy: 0, duration: .1 }, s + L - .78);
+      cue("blink", s + L - .9);
     } },
 
   { text: "بينما لم أرَ منها إلا ما اعتدت البحث عنه",
@@ -805,8 +882,8 @@ const SCENES = [
       cue("pop", s + 4.9);
       // he is still there, looking back at you, and nothing on his face has changed
       on(".last", "fromTo", { from: { opacity: 0, y: 200 }, opacity: 1, y: 0, duration: .6, ease: "power3.out" }, s + 5.4);
-      on(".last .glint", "fromTo", { from: { x: 0 }, x: 420, duration: .3, ease: "power2.in" }, s + L - .6);
-      cue("glint", s + L - .6);
+      on(".last .blink", "to", { sy: 1, duration: .08 }, s + L - .6); on(".last .blink", "to", { sy: 0, duration: .1 }, s + L - .46);
+      cue("blink", s + L - .6);
     } }
 ];
 
@@ -886,7 +963,7 @@ const sheets = SCENES.map((scene, i) => {
   sheet.style.setProperty("--accent", scene.accent);
   sheet.style.setProperty("--accent-ink", scene.accentInk);
   const html = contentHTML(scene);
-  const clips = scene.tear ? tearClips(scene.tear) : null;
+  const clips = null; // scenes now pass through a tunnel instead of tearing
   let backer = null;
   if (clips) { backer = document.createElement("div"); backer.className = "face"; sheet.appendChild(backer); }
   const halves = (clips ? ["A", "B"] : ["A"]).map(k => {
@@ -974,7 +1051,50 @@ function render(t) {
 /* ============================================================
    Build the timeline
    ============================================================ */
-const CUES = [], TRIPKEYS = [[0, 0]], LINES = [];
+const CUES = [], TRIPKEYS = [[0, 0]], LINES = [], TUNNELS = [];
+/* ---- tunnel vision: the view narrows to a point, paper rings rush past, a light opens at the end,
+        and the next scene grows out of it. Every scene change is one step further in. ---- */
+const TUNNEL = { close: .85, emerge: 1.05, open: .95 };
+const tunnelEl = document.getElementById("tunnel");
+const RINGC = ["#c8553d", "#e3b448", "#1f3b4d", "#efe6d4", "#2f6f73", "#6e2a35", "#a99ccc", "#1d1a17"];
+tunnelEl.innerHTML =
+  `<div class="tvig"></div><div class="tlines"></div>` +
+  RINGC.concat(RINGC).map((c, i) => `<div class="tring" style="background:radial-gradient(circle, transparent 0 58.5%, #fbf8f1 59% 60.2%, ${c} 60.6% 68.5%, #fbf8f1 69% 70%, transparent 70.5%), var(--grain);
+     -webkit-mask-image:radial-gradient(circle, transparent 0 58%, #000 58.5% 70.5%, transparent 71%);mask-image:radial-gradient(circle, transparent 0 58%, #000 58.5% 70.5%, transparent 71%);transform:rotate(${i * 37}deg)"></div>`).join("") +
+  `<div class="tlight"></div>`;
+const T = {
+  rings: tunnelEl.querySelectorAll(".tring"), lines: tunnelEl.querySelector(".tlines"),
+  vig: tunnelEl.querySelector(".tvig"), light: tunnelEl.querySelector(".tlight")
+};
+function tunnelTo(cur, next, T0) {
+  const mid = T0 + TUNNEL.close, end = mid + TUNNEL.open;
+  TUNNELS.push([T0 - .1, end + .1]);
+  // the current scene rushes toward you and is swallowed
+  tween("fromTo", cur, { from: { scale: 1, rotation: 0 }, scale: 2.8, rotation: (TUNNELS.length % 2 ? 7 : -7), duration: TUNNEL.close + .1, ease: "power2.in" }, T0);
+  tween("to", cur, { opacity: 0, duration: .12 }, mid - .02);
+  // vision narrows to a pin-hole, then opens on the next scene
+  tween("fromTo", T.vig, { from: { opacity: 0, scale: 1.05 }, opacity: 1, scale: 1.05, duration: .05 }, T0);
+  tween("to", T.vig, { scale: .09, duration: TUNNEL.close, ease: "power2.in" }, T0);
+  tween("to", T.vig, { scale: 1.15, duration: TUNNEL.open, ease: "power2.out" }, mid + .05);
+  tween("to", T.vig, { opacity: 0, duration: .2 }, end - .1);
+  // the next scene is far away at the end of the tunnel and comes up to meet you
+  tween("fromTo", next, { from: { scale: .18, rotation: (TUNNELS.length % 2 ? -10 : 10) }, scale: .18, duration: .01 }, T0);
+  tween("to", next, { scale: 1, rotation: 0, duration: TUNNEL.open + .15, ease: "power2.out" }, mid - .05);
+  // paper rings and speed lines fly past
+  tween("fromTo", T.rings, { from: { scale: .04, opacity: 0 }, scale: 3.2, opacity: 1, duration: .75, ease: "power2.in", stagger: .085 }, T0 + .1);
+  tween("to", T.rings, { opacity: 0, duration: .15, stagger: .085 }, T0 + .7);
+  tween("fromTo", T.lines, { from: { opacity: 0, scale: .6 }, opacity: .9, scale: 1.3, duration: TUNNEL.close, ease: "power2.in" }, T0 + .05);
+  tween("to", T.lines, { opacity: 0, scale: 2.2, duration: TUNNEL.open * .8, ease: "power2.out" }, mid);
+  tween("fromTo", T.lines, { from: { rotation: 0 }, rotation: 50, duration: TUNNEL.close + TUNNEL.open }, T0);
+  // the light at the end of the tunnel
+  tween("fromTo", T.light, { from: { opacity: 0, scale: .2 }, opacity: 1, scale: .7, duration: TUNNEL.close, ease: "power2.in" }, T0 + .1);
+  tween("to", T.light, { opacity: 0, scale: 3, duration: .5, ease: "power2.out" }, mid);
+  cue("riser", T0 - 1.4); cue("tunnel", T0); cue("arrive", mid + .05);
+}
+/* every passage through the tunnel pushes the trip up for a moment */
+const tunnelBoost = tt => TUNNELS.reduce((a, [t0, t1]) => {
+  const c = (t0 + t1) / 2, w = (t1 - t0) / 2; return a + .45 * Math.exp(-Math.pow((tt - c) / w, 2) * 2);
+}, 0);
 const cue = (type, at) => CUES.push({ type, t: +at.toFixed(3) });
 let t = 0.5;
 sheets.forEach(({ sheet, halves, scene, backer }) => {
@@ -1026,29 +1146,14 @@ sheets.forEach(({ sheet, halves, scene, backer }) => {
 
   if (!scene.tear) { t = tearAt + 1; return; }
 
-  const [A, B] = halves;
-  const v = scene.tear === "v";
-  setBase(A.fiber, "opacity", 0);
-  setBase(B.fiber, "opacity", 0);
-  cue("rip", tearAt);
-  tween("to", backer, { opacity: 0, duration: 0.0001 }, tearAt);
-  tween("to", [A.fiber, B.fiber], { opacity: 1, duration: 0.06 }, tearAt);
-  tween("to", [A.half, B.half], { shadow: 1, duration: 0.3 }, tearAt);
-  tween("to", A.half, { ...(v ? { x: -30, rotation: -1.2 } : { y: -30, rotation: -0.8 }), duration: TIMING.crack, ease: "power2.out" }, tearAt);
-  tween("to", B.half, { ...(v ? { x: 30, rotation: 1.2 } : { y: 30, rotation: 0.8 }), duration: TIMING.crack, ease: "power2.out" }, tearAt);
-  tween("to", B.half, { ...(v ? { x: 1300, y: r(-200, 200), rotation: r(8, 16) } : { y: 2100, x: r(-200, 200), rotation: r(4, 9) }),
-    duration: TIMING.rip, ease: "power3.in" }, tearAt + TIMING.crack + 0.1);
-  tween("to", A.half, { ...(v ? { x: -1300, y: r(-200, 200), rotation: -r(8, 16) } : { y: -2100, x: r(-200, 200), rotation: -r(4, 9) }),
-    duration: TIMING.rip, ease: "power3.in" }, tearAt + TIMING.crack + 0.25);
-  cue("whoosh", tearAt + TIMING.crack + 0.1);
-  tween("to", sheet, { opacity: 0, duration: 0.0001 }, tearAt + TIMING.crack + 0.25 + TIMING.rip);
-  t = tearAt + TIMING.crack + TIMING.nextDelay;
+  tunnelTo(sheet, sheets[sheets.findIndex(x => x.sheet === sheet) + 1].sheet, tearAt);
+  t = tearAt + TUNNEL.emerge;
 });
 duration = Math.max(duration, t) + 1.5;
 TRIPKEYS.push([duration, 0]);
 /* how far the trip has gone at time t (0 = sober, 1 = fully unstuck) */
 const TRIPX = clamp(+(new URLSearchParams(location.search).get("trip") || 1), 0, 1.8);
-function tripAt(tt) { return clamp(tripRaw(tt) * TRIPX, 0, 1.8); }
+function tripAt(tt) { return clamp((tripRaw(tt) + tunnelBoost(tt)) * TRIPX, 0, 1.8); }
 function tripRaw(tt) {
   for (let i = 1; i < TRIPKEYS.length; i++) {
     const [t0, v0] = TRIPKEYS[i - 1], [t1, v1] = TRIPKEYS[i];
@@ -1091,6 +1196,8 @@ function draw(time) {
     if (sheet.style.opacity === "0") return;
     tripEls[i].forEach(el => { el.style.filter = lite ? "none" : filt; el.style.transform = tf; });
   });
+  const inTunnel = TUNNELS.some(([a, b]) => tq >= a && tq <= b);
+  tunnelEl.style.display = inTunnel ? "block" : "none";
   flick.style.opacity = (hash(f + 31) * .07).toFixed(3);
   grain.style.transform = `translate(${(hash(f + 3) - .5) * 80}px, ${(hash(f + 5) - .5) * 80}px)`;
   sheets.forEach(({ sheet }) => { sheet.style.visibility = sheet.style.opacity === "0" ? "hidden" : ""; });

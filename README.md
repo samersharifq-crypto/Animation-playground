@@ -120,27 +120,35 @@ Open `torn-paper-city/index.html` to play it. Space plays or pauses, R restarts,
 
 ## torn-paper-lucid/ — *Torn Paper Lucid*
 
-A 52-second vertical (9:16) stop-motion follow-up to *Torn Paper City*. It uses the same six lines and torn sheets, but this time there is a man at its centre, and the world around him slowly comes unstuck.
+A 53-second vertical (9:16) stop-motion journey that follows on from *Torn Paper City*. It has the same six lines, but this time there is a man at its centre, and the world around him slowly comes unstuck.
 
-**The man** is cut from a real photo supplied by the author (`img/face.png`, `img/head.png`, `img/eye.jpg`), with a white scissor border. He wears aviator sunglasses and keeps a **poker face** the whole way through. Light glints across his lenses instead of blinks.
-- In the walking shots his photo head sits on a big, flat, boxy paper body cut like mid-century fashion collages: a square-shouldered maroon knit jacket over a teal sweater, a white shirt and tie, stiff straight sleeves, long pinstripe trouser legs that scissor as he walks, hands and polished shoes. His ghosts wear patchwork, herringbone and check.
-- His walk is keyed pose by pose, twelve poses a second, like real stop-motion.
+**The man** is a drawn collage portrait. He has eyes with heavy lids, flat brows, a halftone-shaded nose, closed neutral lips, ears and hair, and he keeps a **poker face** the whole way through: he only blinks and stares. In the walking shots the same drawn head sits on a big, flat, boxy paper body, cut like mid-century fashion collages:
+- a square-shouldered maroon knit jacket over a teal sweater, a white shirt and tie
+- stiff straight sleeves, long pinstripe trouser legs that scissor as he walks, hands and polished shoes
+- his ghosts wear patchwork, herringbone and check
+
+His walk is keyed pose by pose, twelve poses a second, like real stop-motion.
+
+**The journey**: there are no cuts. Every scene change is a **tunnel-vision passage**:
+1. the scene rushes toward you and the edges of vision close in to a pinhole
+2. concentric paper rings and speed lines stream past in the dark, toward a light at the end
+3. the next scene comes up the tunnel to meet you and opens out
+
+Each passage pushes the trip a little higher for a moment, and its sound carries you through: a reversed swell pulls you in, air rushes past with a falling tone, and a low boom and an open chord land as you arrive.
 
 **The trip** builds scene by scene and then fades away:
 - outlines boil every other frame
 - the walls breathe and lean
 - the colours drift and cycle
 - a red/cyan split pulls the image apart
-- ghost copies of him trail behind in different colours
-- every window on a facade opens into his eye behind the lens
+- ghost copies of him trail behind
+- every window on a facade opens into the same staring eye
 - the sun turns into an op-art spiral
-- his face slides apart in slices like the tower, then splits down the middle while his lenses fill with spinning spirals
+- his face slides apart in slices like the tower, then splits down the middle
 - a tunnel of his own face pulses behind him
 - negative flashes
 
-At the end it is calm again: the city slides away, one lit window is left, and he is still there looking back at you with the same expression.
-
-The generated soundtrack follows the same curve. A quiet plucked lullaby starts to wow and drift like warped tape, then a slow heartbeat, detuned drones and a glassy shimmer come in. Reversed swells rise into each tear, and it all settles on one clear note.
+At the end it is calm: the city slides away, one lit window is left, and he is still there with the same expression. The soundtrack follows the same curve. A plucked lullaby starts to wow like warped tape, then a slow heartbeat, drones and a glassy shimmer come in, and it settles on one clear note.
 
 - `index.html` plays it. Space, R, M, H and the slider work as before.
   - `?loop` loops it, for Reels.
@@ -148,3 +156,4 @@ The generated soundtrack follows the same curve. A quiet plucked lullaby starts 
   - `?lite` drops the boiling filter, and a slow machine does that on its own.
 - `torn-paper-lucid.mp4` is the 1080×1920 video. `torn-paper-lucid-16x9.mp4` and `torn-paper-lucid-1x1.mp4` show the same film mounted on kraft paper for landscape and square feeds.
 - **Voice-over**: `narration-timing.srt` has each Arabic line with its exact on-screen timing. Record it, save it as `narration.mp3` next to `index.html`, and the player plays it in sync. Running `node torn-paper-lucid/tools/record.js` then mixes it into all three videos (needs Playwright, ffmpeg, python3 + numpy).
+- `img/` holds the photo cut-outs from an earlier version; the current film doesn't use them.

@@ -2,7 +2,8 @@
 # The music follows the film's trip curve: a calm plucked lullaby at first, then the tape starts
 # to wow and drift, a slow heartbeat comes in, detuned drones and a high glassy shimmer swell,
 # reversed swells rise into each tear, and it all settles to one clear note at the end.
-# Effects (slaps, rips, swishes, taps, eyes popping open, glints, glitches, flashes...) sit on the cues.
+# Between scenes a reversed swell pulls you in, air rushes through the tunnel and a low boom and open
+# chord land as the next scene opens. Effects (slaps, swishes, taps, eyes, glitches, flashes...) sit on the cues.
 # usage: python3 sound.py cues.json out.wav      (numpy only)
 import sys, json, wave, numpy as np
 
@@ -124,17 +125,29 @@ def shift():                                   # tape-stop glitch for the slidin
     return s * (np.sin(2 * np.pi * 24 * x) > 0) * np.exp(-x * 4)
 def glint():                                   # a light catching the sunglasses
     x = ts(.6); return sum(np.sin(2 * np.pi * midi(m) * x) for m in (93, 100)) * np.exp(-x * 7) * .4 * np.minimum(1, x / .01)
+def riser():                                   # a reversed swell that pulls you toward the tunnel
+    d = 1.5; x = ts(d)
+    s = sum(np.sin(2 * np.pi * midi(m) * x * (1 + .04 * x)) for m in (62, 69, 74, 81)) / 4
+    return (s * .5 + filt(noise(d), 800, 9000) * .5) * (x / d) ** 2.5
+def tunnel():                                  # rushing air and a falling doppler tone through the tunnel
+    d = 1.9; x = ts(d); n = filt(noise(d), 150, 3500)
+    f = 520 * np.exp(-x * 1.2) + 60
+    tone = np.sin(2 * np.pi * np.cumsum(f) / SR) * .35
+    return (n + tone) * np.sin(np.pi * np.clip(x / d, 0, 1)) ** 1.5 * (1 + .5 * np.sin(2 * np.pi * 9 * x))
+def arrive():                                  # a soft low boom and an open chord as the next scene opens
+    x = ts(2.6)
+    boom = np.sin(2 * np.pi * np.cumsum(42 + 30 * np.exp(-x * 6)) / SR) * np.exp(-x * 2.2)
+    chord = sum(piano(midi(m), 2.6) for m in (62, 69, 74, 78)) / 4
+    return boom * .8 + chord * .6
 def flash():
     x = ts(.25); return (filt(noise(.25), 3000, 14000) + np.sin(2 * np.pi * 2200 * x) * .3) * np.exp(-x * 14)
 
 FX = {'slap': (slap, .3), 'rip': (rip, .55), 'whoosh': (whoosh, .3), 'swish': (swish, .18), 'thump': (thump, .45),
       'tap': (tap, .6), 'pop': (pop, .45), 'step': (step, .16), 'creak': (creak, .14), 'unroll': (unroll, .22),
-      'pass': (whoosh, .15), 'blink': (blink, .3), 'eye': (eye, .22), 'shift': (shift, .4), 'flash': (flash, .35), 'glint': (glint, .14)}
+      'pass': (whoosh, .15), 'blink': (blink, .3), 'eye': (eye, .22), 'shift': (shift, .4), 'flash': (flash, .35), 'glint': (glint, .14), 'riser': (riser, .18), 'tunnel': (tunnel, .42), 'arrive': (arrive, .4)}
 for c in data['cues']:
     fn, g = FX[c['type']]
     put(mix, fn(), c['t'], g * rng.uniform(.85, 1.1), pan=rng.uniform(-.35, .35))
-    if c['type'] == 'rip':
-        put(mix, swell(), c['t'] - 1.6, .16)
 
 mix /= max(1e-9, np.abs(mix).max()) / .85
 out = (mix * 32767).astype(np.int16)
