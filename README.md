@@ -68,3 +68,19 @@ A 78-second vertical (9:16) motion graphic in Arabic about Steve Jobs and how Ap
 12. **End card**: 1955–2011. *From a small garage, he changed the world.*
 
 Open `steve-jobs/index.html` to play it (space = play/pause, M = sound, click the bar to seek). `steve-jobs/steve-jobs.mp4` is the rendered 1080×1920 30fps video with its generated soundtrack (vinyl crackle, a slow piano progression, and whooshes and thuds on the cuts), which is also saved as `steve-jobs/soundtrack.m4a` for the player. To render it again, run `node steve-jobs/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
+
+## stranger-at-the-window/ — *The Stranger at the Window*
+
+A 68-second vertical (9:16) cut-paper collage thriller with a comic chase. It borrows from the reference collages: grid paper, a mustard sun, torn grey cardboard and kraft, torn watercolour strips, a torn hole in a face, a giant hand reaching in from above, halftone cut-outs with white scissor borders and ransom-note type. Characters move on twelves, like stop-motion, and the camera moves smoothly. The hero is a real photo cut-out (`img/hero.png`, supplied by the author) on a cut-paper bisht and thobe. Everything else is drawn live on canvas.
+
+1. **Title**: ransom-note letters over the sun, a case-file strip, and a pair of sunglasses peeking up. A magnifying glass swallows the frame.
+2. **Café Rosa**: he sips coffee and reads *How to Spot a Spy*. Outside the glass a stranger keeps popping up behind a newspaper with two eye-holes, from below, upside down and from the side. He ducks every time the reader turns. Freeze frame: SUSPECT / WITNESS.
+3. **The evidence board**: torn cardboard and kraft, polaroids (a suspect with a torn hole for a face, the newspaper, a bitten croissant, footprints to the door), red string, a typed index card, the magnifier and a WANTED (for staring) stamp. *"I'm on it."*
+4. **Bursting out**: BAM! The stranger jumps out of his hat, spins his legs into a wheel and is gone.
+5. **The chase**: a parallax street under torn watercolour skies. A constable joins with his whistle, slips on a banana peel and spins, and the hero hops over it mid-sip (*coffee spilled: 0*). Then the newspaper disguise, a skid and a moonwalk back.
+6. **The stairs**: up a torn cardboard staircase to a dead end.
+7. **Caught**: a giant police hand plucks him off the cliff. He keeps running in mid-air, the cuffs click, and *GOTCHA*.
+8. **Mugshot**: flash, CAUGHT. He flips the placard over: he was only trying to return the wallet. *oh.* CASE CLOSED (awkwardly).
+9. **The end**: back in the café, wallet returned, and now two newspapers with eye-holes at the window. *…or is it?*
+
+Open `stranger-at-the-window/index.html` to play it (space = play/pause, M = sound, click the bar to seek). `stranger-at-the-window/stranger-at-the-window.mp4` is the rendered 1080×1920 24fps video. Its generated soundtrack (spy-jazz bass, café piano, a dread drone and heartbeat, a comic xylophone chase, a sad trombone, plus rips, stamps, whistles, boings, shutters and handcuffs on cue) is also saved as `soundtrack.m4a` for the player. To render it again, run `node stranger-at-the-window/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
