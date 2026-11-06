@@ -148,6 +148,13 @@ Each passage pushes the trip a little higher for a moment, and its sound carries
 - a tunnel of his own face pulses behind him
 - negative flashes
 
+**Foley**: you hear what you see.
+- His footsteps are leather heels on pavement with a little street echo. They land exactly when each foot touches the ground in the walk cycle.
+- His ghosts leave fainter, delayed echo steps, and the tiny figure far up the road has distant steps.
+- On the night street a taxi passes one way and honks, and the bus passes the other way. Engines rise and fall with a doppler pass and tyre hiss, panning across the speakers as they cross the screen.
+- In the parade, the bus has a diesel rumble and air brakes, the tram has rail clacks and its bell, the birds flap and chirp, the tree rustles and the umbrella flaps.
+- A city traffic bed runs under both street scenes.
+
 At the end it is calm: the city slides away, one lit window is left, and he is still there with the same expression. The soundtrack follows the same curve. A plucked lullaby starts to wow like warped tape, then a slow heartbeat, drones and a glassy shimmer come in, and it settles on one clear note.
 
 - `index.html` plays it. Space, R, M, H and the slider work as before.

@@ -2,6 +2,9 @@
 # The music follows the film's trip curve: a calm plucked lullaby at first, then the tape starts
 # to wow and drift, a slow heartbeat comes in, detuned drones and a high glassy shimmer swell,
 # reversed swells rise into each tear, and it all settles to one clear note at the end.
+# Foley: footsteps land on each foot contact of the walk (with fainter echo steps for his ghosts),
+# cars pass with engine doppler, tyre hiss and travelling stereo, plus a horn, bus air brakes, tram
+# rail clacks and bell, wing beats, leaves and a city traffic bed under the street scenes.
 # Between scenes a reversed swell pulls you in, air rushes through the tunnel and a low boom and open
 # chord land as the next scene opens. Effects (slaps, swishes, taps, eyes, glitches, flashes...) sit on the cues.
 # usage: python3 sound.py cues.json out.wav      (numpy only)
@@ -142,10 +145,98 @@ def arrive():                                  # a soft low boom and an open cho
 def flash():
     x = ts(.25); return (filt(noise(.25), 3000, 14000) + np.sin(2 * np.pi * 2200 * x) * .3) * np.exp(-x * 14)
 
+
+# ---------- foley: footsteps, cars and the things that pass ----------
+def put_move(buf, sig, at, gain, p0, p1):
+    """place a sound that travels across the stereo field from pan p0 to p1"""
+    i = int(at * SR)
+    if i >= N or i + len(sig) <= 0: return
+    if i < 0: sig = sig[-i:]; i = 0
+    sig = sig[: N - i]; pan = np.linspace(p0, p1, len(sig))
+    buf[i:i + len(sig), 0] += sig * gain * np.clip(1 - pan, 0, 1)
+    buf[i:i + len(sig), 1] += sig * gain * np.clip(1 + pan, 0, 1)
+def street_echo(x, d1=.045, d2=.11, g=.28):
+    out = np.concatenate([x, np.zeros(int(.2 * SR))])
+    for d, gg in ((d1, g), (d2, g * .55)):
+        k = int(d * SR); out[k:k + len(x)] += filt(x, 200, 3000) * gg
+    return out
+def footstep(foot=0, soft=1.0):
+    """a leather heel on pavement: heel strike, toe roll and a little grit"""
+    rate = rng.uniform(.9, 1.1) * (1.04 if foot else .97)
+    x = ts(.25)
+    heel = filt(noise(.25), 120, 3200) * np.exp(-x * 75 * rate) + np.sin(2 * np.pi * 85 * rate * x) * np.exp(-x * 55) * .7
+    toe = np.zeros(len(x)); k = int(rng.uniform(.05, .07) * SR)
+    t2 = x[: len(x) - k]; toe[k:] = filt(rng.uniform(-1, 1, len(t2)), 500, 6500) * np.exp(-t2 * 110) * .45
+    grit = filt(noise(.25), 2500, 9000) * np.exp(-x * 30) * .12
+    return street_echo((heel + toe + grit) * soft)
+def engine(d, f0, harm, tp, w, dopp=.07, rumble=0):
+    x = ts(d); env = 1 / (1 + ((x - tp) / w) ** 2)
+    ratio = 1 + dopp * np.tanh(-(x - tp) / (w * .6))           # higher coming in, lower going away
+    ph = 2 * np.pi * np.cumsum(f0 * ratio) / SR
+    s = sum(a * np.sin(h * ph + rng.uniform(0, 6)) for h, a in harm)
+    s *= 1 + .35 * np.sin(ph * .5)                              # cylinders firing
+    if rumble: s *= 1 + rumble * np.sin(2 * np.pi * 11 * x)
+    hiss = filt(noise(d), 600, 7000) * .6
+    far = filt(s, None, 400)
+    return (s * env + far * (1 - env) * .25 + hiss * env ** 1.5) * np.minimum(1, x / .3) * np.minimum(1, (d - x) / .3)
+def car_sound(kind, d):
+    tp = d / 2; x = ts(d)
+    if kind == 'taxi': return engine(d, 42, [(1, 1), (2, .6), (3, .35), (4, .2), (6, .1)], tp, .38) * .9
+    if kind == 'bus':
+        s = engine(d, 27, [(1, 1), (2, .8), (3, .5), (5, .3), (7, .15)], tp, .6, dopp=.05, rumble=.5) * 1.1
+        k = int((tp + .5) * SR); air = filt(noise(.7), 2500, 9000) * np.exp(-ts(.7) * 4) * .5   # air brakes
+        s[k:k + len(air)] += air[: len(s) - k]; return s
+    if kind == 'tram':
+        s = engine(d, 600, [(1, .25), (2, .1)], tp, .55, dopp=.04) * .4
+        for c in np.arange(.1, d - .2, .42):                                                   # wheels over rail joints
+            for o in (0, .09):
+                k = int((c + o) * SR); cl = filt(noise(.05), 800, 6000) * np.exp(-ts(.05) * 90)
+                s[k:k + len(cl)] += cl * (1 / (1 + ((c - tp) / .6) ** 2)) * .9
+        for o in (tp - .7, tp - .45):                                                          # the bell, twice
+            k = int(o * SR); b = ts(1.2)
+            bell = (np.sin(2 * np.pi * 1320 * b) + .5 * np.sin(2 * np.pi * 1320 * 2.76 * b)) * np.exp(-b * 4)
+            s[k:k + len(bell)] += bell[: len(s) - k] * .35
+        return s
+    if kind == 'bird':
+        s = np.zeros(len(x))
+        for c in np.arange(tp - .5, tp + .5, .11):                                             # wing beats
+            k = int(c * SR); fl = filt(noise(.06), 300, 3000) * np.sin(np.pi * ts(.06) / .06)
+            s[k:k + len(fl)] += fl * .5
+        k = int((tp - .2) * SR); ch = ts(.18)
+        s[k:k + len(ch)] += np.sin(2 * np.pi * np.cumsum(3200 + 1800 * np.sin(2 * np.pi * 14 * ch)) / SR) * np.exp(-ch * 9) * .3
+        return s
+    if kind == 'umbrella':
+        e = 1 / (1 + ((x - tp) / .3) ** 2); return filt(noise(d), 200, 2500) * e * (1 + .6 * np.sin(2 * np.pi * 6 * x)) * .7
+    if kind == 'tree':
+        e = 1 / (1 + ((x - tp) / .45) ** 2); am = np.convolve(rng.random(len(x)) < .004, np.ones(600) / 60, 'same')
+        return filt(noise(d), 1500, 9000) * e * (.3 + am) * .7
+    return np.zeros(len(x))
+def horn():
+    x = ts(.42); tone = np.sign(np.sin(2 * np.pi * 415 * x)) * .5 + np.sign(np.sin(2 * np.pi * 523 * x)) * .5
+    gate = ((x < .14) | ((x > .2) & (x < .38))).astype(float)
+    return filt(tone, 300, 2500) * gate * .5
+def city(d):
+    x = ts(d); s = filt(noise(d), 40, 260) * .9 + filt(noise(d), 300, 1800) * .25
+    s *= .7 + .3 * np.sin(2 * np.pi * .13 * x + 1)
+    return s * np.minimum(1, x / 1.2) * np.minimum(1, (d - x) / 1.2)
+
+for c in data['cues']:
+    ty = c['type']
+    if ty in ('step', 'ghoststep', 'farstep'):
+        sig = footstep(c.get('foot', 0), 1.0)
+        if ty == 'ghoststep': sig = street_echo(filt(sig, 150, 2500), .09, .2, .5)
+        if ty == 'farstep': sig = filt(sig, 150, 1800)
+        put(mix, sig, c['t'] - .005, 1.5 * c.get('g', 1), pan=c.get('pan', 0) + (.12 if c.get('foot') else -.12))
+    elif ty == 'car':
+        d = c.get('d', 2.6); put_move(mix, car_sound(c['kind'], d), c['t'] - d / 2, .5, c.get('from', 1), c.get('to', -1))
+    elif ty == 'horn': put(mix, horn(), c['t'], .35, pan=c.get('pan', 0))
+    elif ty == 'city': put(mix, city(c['d']), c['t'], .12 * c.get('g', 1))
+
 FX = {'slap': (slap, .3), 'rip': (rip, .55), 'whoosh': (whoosh, .3), 'swish': (swish, .18), 'thump': (thump, .45),
-      'tap': (tap, .6), 'pop': (pop, .45), 'step': (step, .16), 'creak': (creak, .14), 'unroll': (unroll, .22),
+      'tap': (tap, .6), 'pop': (pop, .45), 'creak': (creak, .14), 'unroll': (unroll, .22),
       'pass': (whoosh, .15), 'blink': (blink, .3), 'eye': (eye, .22), 'shift': (shift, .4), 'flash': (flash, .35), 'glint': (glint, .14), 'riser': (riser, .18), 'tunnel': (tunnel, .42), 'arrive': (arrive, .4)}
 for c in data['cues']:
+    if c['type'] not in FX: continue
     fn, g = FX[c['type']]
     put(mix, fn(), c['t'], g * rng.uniform(.85, 1.1), pan=rng.uniform(-.35, .35))
 

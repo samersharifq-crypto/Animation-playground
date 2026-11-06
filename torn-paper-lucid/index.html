@@ -533,6 +533,15 @@ function walkerHTML({ x, foot, s = 1, cls = "", outfit = "hero", style = "" }) {
     `data-s="${s}"`);
 }
 
+/* a footstep cue every time a foot lands (front foot at phase 0, back foot at .5) */
+function stepCues(cue, s, e, period = 1, lag = 0, opts = {}) {
+  const { g = 1, from = s, pan = () => 0, kind = "step" } = opts;
+  for (let k = -2; ; k++) {
+    const tt = s + (k * .5 - lag) * period;
+    if (tt >= e) break;
+    if (tt >= Math.max(s, from)) cue(kind, tt, { g: +g.toFixed(2), pan: +pan(tt).toFixed(2), foot: k & 1 });
+  }
+}
 /* stop-motion walk cycle keyed pose by pose (12 poses a second) */
 function walkKeys(keys, pre, s, e, period = 1, lag = 0) {
   const leg = p => -19 * Math.cos(2 * Math.PI * p);
@@ -689,7 +698,8 @@ const SCENES = [
           `<div class="a" style="${box(0, 0, P * 4, B)}">${row}</div>` +
           div("", `${box(0, B - 10, P * 4, 120)}background:#77736c;clip-path:${tornTop(10, 1.5, 120)}`, `<div class="a grainy" style="inset:0"></div>`) +
           div("", `${box(0, B + 100, P * 4, 400)}background:#191817`, dashes)) +
-        ghosts + walkerHTML({ x: 470, foot: 1660, s: .76, cls: "hero" });
+        ghosts + walkerHTML({ x: 470, foot: 1660, s: .76, cls: "hero" }) +
+        taxiHTML("car1", -620, 1690, 1, "#efb21e") + busHTML("car2", 1100, 1672);
     },
     anim(on, s, L, cue, swing, keys) {
       const P = 830, e = s + L + .7;
@@ -699,7 +709,15 @@ const SCENES = [
         walkKeys(keys, `.g${k}`, s - .2, e, 1.0, -(k + 1) * .12);
         on(`.g${k}`, "fromTo", { from: { opacity: 0 }, opacity: .5 - k * .1, duration: .5 }, s + 1.4 + k * .7);
       });
-      for (let k = 0; k < (L + .7) / .5; k++) cue("step", s + k * .5);
+      stepCues(cue, s - .2, e, 1.0, 0, { g: 1 });
+      [0, 1, 2].forEach(k => stepCues(cue, s - .2, e, 1.0, -(k + 1) * .12, { g: .32 - k * .07, from: s + 1.4 + k * .7, kind: "ghoststep" }));
+      // traffic: a taxi one way, the bus the other, with a horn
+      on(".car1", "fromTo", { from: { x: 0 }, x: 2400, duration: 1.8, ease: "none" }, s + 1.0);
+      cue("car", s + 1.0 + .75, { kind: "taxi", from: -1, to: 1, d: 3.2 });
+      cue("horn", s + 1.55, { pan: -.2 });
+      on(".car2", "fromTo", { from: { x: 0 }, x: -2100, duration: 2.6, ease: "none" }, s + 3.0);
+      cue("car", s + 3.0 + 1.05, { kind: "bus", from: 1, to: -1, d: 4.2 });
+      cue("city", s - .4, { d: L + 1.6 });
       keys(".moon", "scale", p => 1 + .12 * Math.sin(2 * Math.PI * p), s, e, 1.6);
       keys(".star", "rotation", p => p * 360, s, e, 3);
       on(".star", "to", { opacity: .25, duration: .3, stagger: .37 }, s + .4);
@@ -801,6 +819,7 @@ const SCENES = [
       on(".walker2", "fromTo", { from: { opacity: 0 }, opacity: 1, duration: .1 }, s + 3.0);
       on(".walker2", "to", { y: -380, x: 20, scale: .1, duration: L - 2.6, ease: "none" }, s + 3.0);
       walkKeys(keys, ".walker2", s + 3.0, s + L + 1, .8);
+      stepCues(cue, s + 3.0, s + L, .8, 0, { g: .6, kind: "farstep" });
       on(".art", "fromTo", { from: { scale: 1 }, scale: 1.06, duration: L, ease: "none" }, s);
     } },
 
@@ -828,8 +847,16 @@ const SCENES = [
       keys(".echo", "rotation", p => 6 * Math.sin(2 * Math.PI * p), s, s + L + 1, 3.2);
       [0, 1, 2].forEach(k => keys(`.e${k}`, "scale", p => 1 + .1 * Math.sin(2 * Math.PI * (p + k * .25)), s, s + L + 1, 2.4));
       const order = [".t0", ".t1", ".t3", ".t2", ".t5", ".t4", ".t6", ".t7", ".t8"];
-      order.forEach((c, i) => { const at = s + .9 + i * .5; on(c, "to", { x: -1900, duration: 2.3, ease: "none" }, at); cue("pass", at + .6); });
+      const kinds = { ".t0": "bus", ".t1": "bird", ".t3": "taxi", ".t2": "tree", ".t5": "tram", ".t4": "umbrella", ".t6": "bird", ".t7": "taxi" };
+      order.forEach((c, i) => {
+        const at = s + .9 + i * .5;
+        on(c, "to", { x: -1900, duration: 2.3, ease: "none" }, at);
+        if (kinds[c]) cue("car", at + 1.0, { kind: kinds[c], from: 1, to: -1, d: kinds[c] === "bus" || kinds[c] === "tram" ? 3.4 : 2.6 });
+      });
       walkKeys(keys, ".t8", s, s + L + 1, .9);
+      const t8at = s + .9 + 8 * .5;
+      stepCues(cue, t8at, t8at + 2.3, .9, 0, { g: .7, pan: tt => 1 - 2 * (tt - t8at) / 2.3 });
+      cue("city", s - .4, { d: L + 1.6, g: .6 });
       on(".t1, .t6", "to", { sy: -.6, duration: .17 }, s + 1.2); on(".t1, .t6", "to", { sy: 1, duration: .17 }, s + 1.4);
       on(".t1, .t6", "to", { sy: -.6, duration: .17 }, s + 1.9); on(".t1, .t6", "to", { sy: 1, duration: .17 }, s + 2.1);
       on(".big .iris", "to", { x: 9, duration: .4 }, s + .9);
@@ -1095,7 +1122,7 @@ function tunnelTo(cur, next, T0) {
 const tunnelBoost = tt => TUNNELS.reduce((a, [t0, t1]) => {
   const c = (t0 + t1) / 2, w = (t1 - t0) / 2; return a + .45 * Math.exp(-Math.pow((tt - c) / w, 2) * 2);
 }, 0);
-const cue = (type, at) => CUES.push({ type, t: +at.toFixed(3) });
+const cue = (type, at, extra = {}) => CUES.push({ type, t: +at.toFixed(3), ...extra });
 let t = 0.5;
 sheets.forEach(({ sheet, halves, scene, backer }) => {
   const on = (sel, mode, vars, at) => halves.forEach(h => {
