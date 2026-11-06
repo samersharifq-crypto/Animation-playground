@@ -21,7 +21,7 @@ srv.listen(0, '127.0.0.1', async () => {
   fs.writeFileSync(cues, JSON.stringify(await pg.evaluate(() => window.__CUES)));
   const silent = path.join(dir, '.video-silent.mp4');
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), '-i', '-',
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '23', '-pix_fmt', 'yuv420p', silent], { stdio: ['pipe', 'inherit', 'inherit'] });
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', '28', '-pix_fmt', 'yuv420p', silent], { stdio: ['pipe', 'inherit', 'inherit'] });
   const n = Math.round(total * fps);
   for (let i = 0; i < n; i++) {
     const url = await pg.evaluate(t => window.__frame(t), i / fps);
