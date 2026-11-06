@@ -71,7 +71,7 @@ Open `steve-jobs/index.html` to play it (space = play/pause, M = sound, click th
 
 ## stranger-at-the-window/ — *The Stranger at the Window*
 
-A 74-second vertical (9:16) cut-paper collage thriller, made as a stop-motion movie. The whole picture moves on twelves, with gate weave, exposure flicker and paper grain. It borrows from the reference collages:
+A 76-second vertical (9:16) cut-paper collage thriller, made as a stop-motion movie and cut like one: close-ups, inserts, a split screen, slow motion and a flashback. The whole picture moves on twelves, with gate weave, exposure flicker and paper grain. It borrows from the reference collages:
 - a night city built from torn newsprint, crosswords, stock pages, brick and blue-and-white tiles, with warm lit windows
 - torn navy skies with paper stars and a mustard moon
 - spotlight street lamps and cobbles of torn scraps
@@ -82,16 +82,16 @@ A 74-second vertical (9:16) cut-paper collage thriller, made as a stop-motion mo
 **The stranger** has a drawn, noir-lit face: a fedora brim shadow over the eyes, stubble, a moustache and halftone print.
 
 1. **Intro**: a film-leader countdown, then a torn *HAVE YOU SEEN THIS MAN?* poster on a brick wall under a lamp, whose eyes follow you. The title strips are slapped on, and the cast appears: The Reader, The Stranger, The Constable.
-2. **Café Rosa**: he sips coffee and reads *How to Spot a Spy*. The stranger's face rises at the glass, hangs upside down from the top, then slides in behind a newspaper with eye-holes. Freeze frame: SUSPECT / WITNESS.
+2. **Café Rosa**: he sips coffee and reads *How to Spot a Spy*. The stranger's face rises at the glass holding something brown. A close-up shows his eyes and a wallet tapping on the glass (*tap tap*), then a reaction shot shows the reader's eyes over the book. The face then hangs upside down from the top, then slides in behind a newspaper with eye-holes. Freeze frame: SUSPECT / WITNESS.
 3. **The evidence board**: polaroids, red string, a typed index card and a WANTED (for staring) stamp. It tears open in a hole to reveal the street.
-4. **Following the clues**: magnifier in hand, he follows glowing footprints and croissant crumbs to the stranger under a street lamp, who dives into a taxi (SLAM!). A police car screeches up: *HOP IN!*
-5. **The car chase**: sirens through the collage city, with the stranger leaning out of the taxi and the hero leaning out of the police car, coffee in hand.
+4. **Following the clues**: magnifier in hand, he follows glowing footprints and croissant crumbs to the stranger under a street lamp. An insert shows the stranger's hands opening the wallet to the hero's own café loyalty card (*...HIS?*). The stranger who dives into a taxi (SLAM!). A police car screeches up: *HOP IN!*
+5. **The car chase**: it opens on a three-panel split screen: the reader in the police car (*STOP RIGHT THERE!*), the chase, and the stranger in the taxi's rear-view mirror (*WAIT! YOUR WAL—*). Then sirens through the collage city, with the stranger leaning out of the taxi and the hero leaning out of the police car, coffee in hand.
    - The police car hits a thrown banana peel and spins.
-   - Both cars launch off a newspaper ramp over the oncoming No. 7 bus (*sip.*, coffee spilled: 0).
+   - Both cars launch off a newspaper ramp over the oncoming No. 7 bus in slow motion, with coffee hanging in mid-air (*sip.*, coffee spilled: 0).
    - The taxi skids to a stop at a cardboard staircase.
 6. **The stairs**: up to a dead end.
-7. **Caught**: a giant police hand plucks him off a brick rooftop under the moon. *GOTCHA*.
-8. **Mugshot**: CAUGHT. The placard flips: he was only trying to return the wallet. *oh.* CASE CLOSED (awkwardly).
+7. **Caught**: a giant police hand plucks him off a brick rooftop under the moon. An extreme close-up shows the cuffs, then *GOTCHA*.
+8. **Mugshot**: CAUGHT. The placard flips: he was only trying to return the wallet. *oh.* A sepia flashback, *EARLIER THAT EVENING…*, shows the wallet dropping outside the café, the stranger picking it up and tapping on the glass to give it back. CASE CLOSED (awkwardly).
 9. **The end**: back in the café with two newspapers at the window, *…or is it?*, and closing credits.
 
 Open `stranger-at-the-window/index.html` to play it (space = play/pause, M = sound, click the bar to seek). `stranger-at-the-window/stranger-at-the-window.mp4` is the rendered 1080×1920 video.

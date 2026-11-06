@@ -998,10 +998,10 @@ const SC = [
   ['carchase', 37.4, 48.0],
   ['stairs', 48.0, 53.8],
   ['caught', 53.8, 60.0],
-  ['mug', 60.0, 68.0],
-  ['end', 68.0, 74.0],
+  ['mug', 60.0, 70.0],
+  ['end', 70.0, 76.0],
 ];
-const TOTAL = 74;
+const TOTAL = 76;
 const S0 = i => SC[i][1];
 // transitions: [kind, start(abs), dur, from, to]
 const TR = [
@@ -1012,7 +1012,7 @@ const TR = [
   ['ripUp', 47.6, .4, 4, 5],
   ['slide', 53.5, .3, 5, 6],
   ['flash', 59.85, .3, 6, 7],
-  ['rip', 67.6, .6, 7, 8],
+  ['rip', 69.6, .6, 7, 8],
 ];
 
 /* ---------- 0. INTRO: film leader, the poster, the cast ---------- */
@@ -1093,6 +1093,48 @@ function sIntro(g, lt) {
     castCard(g, 860, 'suspect', 'THE STRANGER', 'in a fedora', lt, 5.0, .025);
     castCard(g, 1160, 'cop', 'THE CONSTABLE', 'and his whistle', lt, 5.25, -.02);
   }
+}
+/* ---------------- film grammar: letterbox, close-ups, the flashback ---------------- */
+function bars(g, h = 120) { g.fillStyle = '#07080c'; g.fillRect(0, 0, W, h); g.fillRect(0, H - h, W, h); }
+function hand(g, x, y, s, rot, col = C.skin, sleeve = C.coat) {
+  g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s);
+  part(g, rr(-70, 40, 140, 260, 30), sleeve, { rim: 6, ht: .22 });
+  part(g, P(-62, 60, -70, -30, -40, -80, 40, -86, 70, -40, 66, 60), col, { rim: 6, ht: .22, shade: [-70, 0, 70, 0] });
+  for (let i = 0; i < 4; i++) part(g, rr(-58 + i * 30, -130 + Math.abs(i - 1.5) * 10, 26, 70, 13), col, { rim: 4, ht: .22 });
+  part(g, rr(52, -60, 26, 70, 13, ), col, { rim: 4, ht: .22 });
+  g.restore();
+}
+// the hero's café loyalty card, seen inside the open wallet
+function idCard(g, x, y, s, rot) {
+  g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s);
+  torn(g, [[-200, -120], [200, -120], [200, 120], [-200, 120]], { tex: TX.cream, seed: 77, amp: 2, rim: 4 });
+  g.save(); g.beginPath(); g.rect(-186, -100, 140, 170); g.clip(); g.fillStyle = '#2b3550'; g.fillRect(-186, -100, 140, 170); heroImg(g, 'head', -116, -14, 160, .5, .36, 0); g.restore();
+  txt(g, 'CAFÉ ROSA', 60, -78, `40px ${F.abril}`, C.red);
+  txt(g, 'LOYALTY CARD', 60, -36, `24px ${F.type}`, C.ink);
+  txt(g, '★★★★★★★★★☆', 60, 10, `28px ${F.type}`, C.mustard);
+  txt(g, '9 of 10 coffees', 60, 48, `italic 900 24px ${F.play}`, C.ink);
+  g.restore();
+}
+function walletOpen(g, x, y, s, rot) {
+  g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s);
+  part(g, rr(-300, -170, 290, 340, 16), '#6b3f22', { rim: 6, ht: .25, shade: [-300, 0, 0, 0] });
+  part(g, rr(10, -170, 290, 340, 16), '#7a4828', { rim: 6, ht: .25, shade: [300, 0, 0, 0] });
+  g.strokeStyle = '#e2c08a'; g.setLineDash([9, 7]); g.lineWidth = 3; g.strokeRect(-284, -154, 258, 308); g.strokeRect(26, -154, 258, 308); g.setLineDash([]);
+  idCard(g, 155, 0, .66, .02);
+  part(g, rr(-270, -60, 230, 60, 6), '#8dbb8a', { rim: 3, ht: .2 }); txt(g, '10', -80, -30, `28px ${F.anton}`, '#2e5a2a');
+  g.restore();
+}
+// sepia flashback panel content drawn through an offscreen canvas
+const FB = mk(900, 400), fbg = FB.getContext('2d');
+function flashPanel(g, x, y, rot, draw, lt, t0, cap) {
+  const p = pop(lt, t0, .3); if (p <= 0) return;
+  reset(fbg); fbg.clearRect(0, 0, 900, 400); draw(fbg);
+  g.save(); g.translate(x, y); g.rotate(rot); g.scale(p, p);
+  torn(g, [[-470, -220], [470, -224], [474, 226], [-466, 222]], { tex: TX.cream, seed: 990 + (x | 0) + (y | 0), amp: 6, rim: 6 });
+  g.filter = 'sepia(.85) contrast(1.08) brightness(1.02)'; g.drawImage(FB, -450, -200); g.filter = 'none';
+  g.strokeStyle = C.ink; g.lineWidth = 4; g.strokeRect(-450, -200, 900, 400);
+  if (cap) label(g, cap, -300, -196, { size: 30, font: F.type, tex: TX.white, seed: 5 + (y | 0), rot: -.03 });
+  g.restore();
 }
 /* ---------- 1. CAFÉ ---------- */
 const WIN = { x: 70, y: 210, w: 940, h: 980 };
@@ -1202,7 +1244,7 @@ function sCafe(g, lt, mode = 'cafe') {
       return;
     }
     if (peek1 > 0) { const py = 1240 - peek1 * 330; suspectFace(gg, 240, py - 30, .95, { hat: true, eyes: [look > 0 ? 1 : .3, 0], brow: 4 });
-      part(gg, ell(120, 1050, 30, 20), C.skin, { rim: 4, ht: .2 }); part(gg, ell(360, 1050, 30, 20), C.skin, { rim: 4, ht: .2 }); }
+      part(gg, ell(120, 1050, 30, 20), C.skin, { rim: 4, ht: .2 }); wallet(gg, 372, 1000 + (step12(lt) % 2) * 8, .62, -.2); part(gg, ell(360, 1046, 30, 20), C.skin, { rim: 4, ht: .2 }); }
     if (peek2 > 0) { // upside down from the top
       const py = WIN.y - 200 + peek2 * 420;
       gg.save(); gg.translate(260, py); gg.rotate(Math.PI);
@@ -1239,8 +1281,26 @@ function sCafe(g, lt, mode = 'cafe') {
   if (turn2 > .5) label(g, '?!', 470, 520, { size: 110, font: F.abril, rot: .1, scale: pop(lt, 6.85, .2), bg: C.mustard, tex: TX.white, seed: 4 });
 }
 function sCafeFull(g, lt) {
-  sCafe(g, lt);
   const t = lt;
+  if (t >= 3.3 && t < 3.95) {   // CLOSE-UP: his eyes at the glass, the wallet tapping
+    g.drawImage(TX.nightSky, 0, -200, W * 1.6, 1500 * 1.6);
+    suspectFace(g, 520, 760, 3.1, { hat: true, eyes: [.9, .05], brow: 5 });
+    hand(g, 830, 1560, 1.3, -.25 + (step12(lt) % 2) * .06);
+    wallet(g, 760, 1360, 2.4, -.2 + (step12(lt) % 2) * .05);
+    g.save(); g.globalAlpha = .16; g.fillStyle = '#fff'; g.beginPath(); g.moveTo(560, 0); g.lineTo(760, 0); g.lineTo(260, H); g.lineTo(60, H); g.fill(); g.restore();
+    g.save(); g.globalAlpha = .4; g.translate(540, 300); g.scale(-1, 1); txt(g, 'CAFÉ  ROSA', 0, 0, `150px ${F.abril}`, C.white, { ls: 8 }); g.restore();
+    txt(g, 'tap  tap', 600, 1180, `70px ${F.marker}`, C.white, { rot: -.12, stroke: 8, strokeC: C.ink });
+    bars(g); return;
+  }
+  if (t >= 6.4 && t < 6.8) {    // CLOSE-UP: the reader's eyes over the book
+    cafeInterior(g, lt, {});
+    heroImg(g, 'full', 540, 860, 2500, HA.face[0], .27, -.04);
+    torn(g, [[-40, 1200], [W + 40, 1180], [W + 40, H + 40], [-40, H + 40]], { color: C.red, tex: TX.white, seed: 66, amp: 6, ht: .25 });
+    txt(g, 'SPY', 540, 1450, `260px ${F.abril}`, C.mustard, { rot: -.03 });
+    label(g, '?!', 860, 420, { size: 120, font: F.abril, bg: C.mustard, rot: .12, seed: 4 });
+    bars(g); return;
+  }
+  sCafe(g, lt);
   if (t < 8.95) return;
   // FREEZE FRAME — investigation overlay
   const f = t - 8.95;
@@ -1326,7 +1386,7 @@ function sBoard(g, lt) {
     g.strokeStyle = 'rgba(200,50,43,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(-400, -60); g.lineTo(400, -60); g.stroke();
     g.strokeStyle = 'rgba(60,120,170,.35)'; for (let y = -20; y < 100; y += 40) { g.beginPath(); g.moveTo(-400, y); g.lineTo(400, y); g.stroke(); }
     typed(g, 'MOTIVE:  unknown', -380, -84, lt, 4.6, 22, 40);
-    typed(g, 'SEEN:    3 times. always smiling.', -380, -2, lt, 5.5, 26, 34);
+    typed(g, 'HOLDING: something brown. (?)', -380, -2, lt, 5.5, 26, 34);
     typed(g, 'ORDERS:  find him.', -380, 58, lt, 6.9, 22, 40, C.red);
     g.restore();
   }
@@ -1374,6 +1434,14 @@ function cafeFront(g, x) {
 }
 /* ---------- 3. FOLLOWING THE CLUES ---------- */
 function sClues(g, lt) {
+  if (lt >= 3.7 && lt < 4.35) {   // INSERT: his hands open the wallet. That's our hero's card.
+    g.fillStyle = '#141a2c'; g.fillRect(0, 0, W, H);
+    g.save(); g.globalCompositeOperation = 'screen'; const lg = g.createRadialGradient(540, 700, 40, 540, 900, 900); lg.addColorStop(0, 'rgba(255,200,90,.6)'); lg.addColorStop(1, 'rgba(255,200,90,0)'); g.fillStyle = lg; g.fillRect(0, 0, W, H); g.restore();
+    hand(g, 170, 1220, 1.5, .35); hand(g, 910, 1220, 1.5, -.35);
+    walletOpen(g, 540, 960, 1.35 + (lt - 3.7) * .1, -.03);
+    label(g, '...HIS?', 540, 1560, { size: 70, font: F.marker, tex: TX.white, rot: -.05, seed: 7 });
+    bars(g); return;
+  }
   const t = lt, ox = clamp(t - .8, 0, 3.6) * 150, GY = 1700;
   const z = 1 + .2 * (smooth(4.4, 4.9, t) - smooth(5.7, 6.0, t));
   g.save(); if (z > 1.001) { g.translate(900, 1300); g.scale(z, z); g.translate(-900, -1300); }
@@ -1401,9 +1469,8 @@ function sClues(g, lt) {
   const sx = 1500 - ox, turned = t > 4.6, dive = clamp((t - 5.0) / .45);
   if (dive < .75) {
     const dx = lerp(sx, taxiX - 58, easeIn(dive)), dy = GY - 184 - Math.sin(dive * Math.PI) * 220, ds = lerp(.95, .4, dive);
-    const eat = !turned && Math.sin(step12(lt) * .9) > 0;
-    const h = stranger(g, dx, dy, ds, { run: dive > 0 ? 1 : 0, ph: t * 30, flip: turned, mouth: turned ? 'o' : null, armA: eat ? [.2, -2.6] : turned && !dive ? [-2.6, 2.6] : null, armB: eat ? [.2, -.2] : null, lean: dive * .5 });
-    if (!turned && h) croissant(g, dx + (turned ? -1 : 1) * (h[0] - 0) * ds * 0 + (eat ? 30 : 46) * ds, dy - (eat ? 250 : 120) * ds, .35);
+    stranger(g, dx, dy, ds, { run: dive > 0 ? 1 : 0, ph: t * 30, flip: turned, mouth: turned ? 'o' : null, armA: !turned ? [.3, -1.3] : !dive ? [-2.6, 2.6] : null, armB: !turned ? [.3, -1.0] : null, lean: dive * .5 });
+    if (!turned) wallet(g, dx + 74 * ds, dy - 150 * ds, .5 * ds, .3);
   }
   if (t > 4.6 && t < 5.2) label(g, '!!', sx, GY - 640, { size: 96, font: F.abril, bg: C.mustard, rot: .1, scale: pop(lt, 4.6, .15), seed: 6 });
   if (t > 5.35 && t < 5.9) burst(g, 'SLAM!', taxiX - 40, 1300, 120, C.white, { scale: pop(lt, 5.4, .12), size: 48, fg: C.red, seed: 2 });
@@ -1443,8 +1510,41 @@ function stairBand(g, sx) {
   torn(g, [[sx + 230, 1720], [sx + 290, 1720], [sx + 670, 240], [sx + 610, 240]], { tex: TX.kraft, seed: 72, amp: 10, rim: 7 });
 }
 const STAIR_AT = (sx, u) => [lerp(sx + 130, sx + 510, u), lerp(1720, 240, u)];
+// content time: the bus jump plays in slow motion
+const CC_T = lt => lt < 5.5 ? lt : lt < 7.1 ? 5.5 + (lt - 5.5) * .375 : lt - 1.0;
+const CC_REAL = c => c < 5.5 ? c : c < 6.1 ? 5.5 + (c - 5.5) / .375 : c + 1.0;
 function sCarChase(g, lt) {
-  const t = lt, ox = CC_X(t);
+  if (lt < 1.7) {   // SPLIT SCREEN: him / the chase / the stranger in the mirror
+    reset(gl); gl.clearRect(0, 0, W, H); carChaseWide(gl, lt); 
+    g.drawImage(BL, 0, 1000, W, 720, 0, 600, W, 720);
+    // top: the reader in the police car, siren light washing over him
+    g.save(); g.beginPath(); g.rect(0, 0, W, 600); g.clip();
+    g.fillStyle = '#121a30'; g.fillRect(0, 0, W, 600); speedLines(g, 0, 40, 1080, 520, lt, 1, 'rgba(255,255,255,.5)');
+    heroImg(g, 'head', 520, 330, 620, .5, .42, -.06 + jit(lt, 3, .02));
+    g.save(); g.globalCompositeOperation = 'screen'; g.fillStyle = step12(lt) % 2 ? 'rgba(255,50,40,.25)' : 'rgba(50,120,255,.25)'; g.fillRect(0, 0, W, 600); g.restore();
+    bubble(g, 'STOP RIGHT THERE!', 720, 110, { size: 50, tail: -1, seed: 51, scale: pop(lt, .3, .2), rot: .03 });
+    g.restore();
+    // bottom: the taxi's rear-view mirror
+    g.save(); g.beginPath(); g.rect(0, 1320, W, 600); g.clip();
+    g.fillStyle = '#c99a2a'; g.fillRect(0, 1320, W, 600); g.globalAlpha = .4; g.drawImage(TX.cars.taxi, 0, 0, 200, 120, 0, 1320, W, 600); g.globalAlpha = 1;
+    part(g, rr(140, 1400, 800, 380, 60), '#1a1c22', { rim: 6, ht: .1 });
+    g.save(); g.beginPath(); g.roundRect(170, 1428, 740, 324, 46); g.clip(); g.fillStyle = '#2b3550'; g.fillRect(170, 1428, 740, 324);
+    suspectFace(g, 520, 1640, 1.25, { hat: true, eyes: [-1, .2], sweat: true, brow: 8 }); g.globalAlpha = .18; g.fillStyle = '#fff'; g.fillRect(170, 1428, 740, 60); g.restore();
+    bubble(g, 'WAIT! YOUR WAL—', 760, 1440, { size: 46, tail: -1, seed: 52, scale: pop(lt, .8, .2), rot: -.05 });
+    g.restore();
+    torn(g, [[-40, 584], [W + 40, 590], [W + 40, 620], [-40, 616]], { tex: TX.white, seed: 53, amp: 6, rim: 0 });
+    torn(g, [[-40, 1306], [W + 40, 1300], [W + 40, 1334], [-40, 1338]], { tex: TX.white, seed: 54, amp: 6, rim: 0 });
+    return;
+  }
+  carChaseWide(g, lt);
+  const c = CC_T(lt);
+  if (c > 5.5 && c < 6.1) { // slow motion: letterbox + a hush of vignette
+    g.save(); g.globalAlpha = .35; g.drawImage(TX.vig, 0, 0); g.restore(); bars(g, 150);
+    txt(g, 'S L O W   M O T I O N', 540, 75, `34px ${F.type}`, C.cream);
+  }
+}
+function carChaseWide(g, rawT) {
+  const lt = CC_T(rawT), t = lt, ox = CC_X(t);
   streetSet(g, ox);
   // passers-by on the pavement jump as the chase goes by
   for (let i = 0; i < 30; i++) {
@@ -1475,7 +1575,9 @@ function sCarChase(g, lt) {
   car(g, 'police', px, py, 1.0, 1, t, { rot: prot, inside: gg => copHead(gg, 54, -128, .44), after: heroOut ? gg => {
     heroImg(gg, 'head', -66, -214, 124, .5, .6, -.12 + jit(t, 5, .04));
     limb(gg, -30, -150, 30, -236, 28, TX.bishtP ? pat(gg, TX.bishtP) : '#1c1a1f', { rim: 4 }); brassPin(gg, -30, -150, 5);
-    gg.save(); gg.translate(34, -246); gg.rotate(-prot); cup(gg, 0, 20, .36); steam(gg, 0, -14, lt, .3, .8); gg.restore(); } : null });
+    gg.save(); gg.translate(34, -246); gg.rotate(-prot); cup(gg, 0, 20, .36); steam(gg, 0, -14, lt, .3, .8);
+    if (t > PJ + .1 && t < PJ + .7) { const k = Math.sin((t - PJ - .1) / .6 * Math.PI); for (let d = 0; d < 4; d++) part(gg, ell((d - 1.5) * 12, -20 - k * (40 + d * 18), 7, 9), '#4a2e1c', { rim: 2, ht: 0, shadow: false }); }
+    gg.restore(); } : null });
   if (t > 3.0 && t < 4.1) stars(g, px, py - 300, 110, lt);
   if (t > 3.0 && t < 3.6) burst(g, 'WHOOPS', px + 40, 1200, 130, C.mustard, { scale: pop(lt, 3.0, .15), size: 46, seed: 8, rot: .1 });
   if ((t > .5 && t < 1.4) || (t > 4.0 && t < 4.6)) label(g, 'WEE-OO  WEE-OO', px + 40, 1290 - (t > 4 ? 40 : 0), { size: 44, font: F.marker, rot: -.06, tex: TX.white, seed: 61 });
@@ -1550,6 +1652,14 @@ function giantHand(g, x, y, s, pinch) {
 }
 function sCaught(g, lt) {
   const t = q12(lt);
+  if (t >= 3.7 && t < 4.35) {   // EXTREME CLOSE-UP: click.
+    g.drawImage(TX.nightSky, 0, 0); sun(g, 540, 900, 520, { seed: 13 });
+    hand(g, 380, 980, 1.7, -1.3); hand(g, 720, 980, 1.7, 1.3);
+    const sh = clamp((t - 3.7) / .12);
+    cuffs(g, 550, 940, 4.2, .05, 1 - sh);
+    if (t > 3.82) burst(g, 'CLICK!', 760, 560, 200, C.white, { scale: pop(lt, 3.82, .12), size: 78, fg: C.red, rot: .1, seed: 4 });
+    bars(g); return;
+  }
   g.drawImage(TX.nightSky, 0, 0);
   sun(g, 540, 900, 330, { seed: 13 });
   strip(g, TX.cityFar, 900, 1920 - 1000 + 120);
@@ -1568,7 +1678,7 @@ function sCaught(g, lt) {
   if (t > 1.35 && t < 2.0) label(g, 'pinch.', 760, collarY - 40, { size: 50, font: F.marker, rot: .12, seed: 4 });
   // handcuffs drop & click
   if (t > 3.1 && t < 3.8) { const u = (t - 3.1) / .7; cuffs(g, 640, lerp(-100, sY - 220, easeIn(u)), 1.1, u * 5, 1 - u); }
-  if (t > 3.8 && t < 4.4) burst(g, 'CLICK!', 820, sY - 500, 150, C.white, { scale: pop(lt, 3.8, .15), size: 56, fg: C.red, rot: .1, seed: 4 });
+  if (t > 4.35 && t < 4.6) burst(g, 'CLICK!', 820, sY - 500, 150, C.white, { scale: pop(lt, 3.8, .15), size: 56, fg: C.red, rot: .1, seed: 4 });
   if (resigned) bubble(g, '...fine.', 260, sY - 500, { size: 54, tail: 1, scale: pop(lt, 4.6, .2), seed: 30 });
   if (t > 4.9) {
     ransom(g, 'GOTCHA', 540, 1440, 130, lt, 4.9, { seed: 3 });
@@ -1581,13 +1691,40 @@ function sCaught(g, lt) {
 /* ---------- 7. MUGSHOT ---------- */
 function sMug(g, lt) {
   const t = q12(lt);
+  if (t >= 4.6 && t < 6.7) { sMugBase(g, lt); flashback(g, lt); return; }
+  sMugBase(g, lt);
+}
+function flashback(g, lt) {
+  g.save(); g.globalAlpha = smooth(4.6, 4.8, lt) * .78; g.fillStyle = '#120e0a'; g.fillRect(0, 0, W, H); g.restore();
+  label(g, 'EARLIER THAT EVENING...', 540, 200, { size: 54, font: F.type, tex: TX.cream, seed: 91, rot: -.02, scale: pop(lt, 4.6, .2) });
+  flashPanel(g, 540, 560, -.025, f => {   // 1. he walks into the café; the wallet slips out
+    f.drawImage(TX.nightSky, 0, 0, 900, 400); f.save(); f.scale(.48, .48); f.translate(0, -390); cafeFront(f, 60); f.restore();
+    f.fillStyle = pat(f, TX.card); f.fillRect(0, 210, 900, 200);
+    heroRunner(f, 420, 260, .38, { run: .45, ph: 2, steam: 0 }); wallet(f, 340, 330, .45, .9);
+    txt(f, 'drop.', 300, 380, `30px ${F.marker}`, C.white, { stroke: 5, strokeC: C.ink });
+  }, lt, 4.75, '9:30 PM');
+  flashPanel(g, 540, 1010, .02, f => {   // 2. a stranger picks it up
+    f.fillStyle = pat(f, TX.card); f.fillRect(0, 0, 900, 400); wallet(f, 420, 290, 1.2, .2);
+    hand(f, 520, 190, .9, .5); suspectHead(f, 760, 220, .42, false);
+    bubble(f, 'hm?', 640, 70, { size: 40, seed: 3, tail: -1 });
+  }, lt, 5.2, '9:31 PM');
+  flashPanel(g, 540, 1460, -.015, f => {  // 3. he tries to give it back. The reader keeps reading.
+    f.fillStyle = pat(f, TX.brick); f.fillRect(0, 0, 900, 400);
+    f.fillStyle = '#f2c35a'; f.fillRect(330, 30, 540, 340); heroImg(f, 'full', 600, 380, 260, .5, .93, 0);
+    f.save(); f.translate(600, 300 - 1280 * .4); f.scale(.4, .4); cafeBook(f, 0, 1, 0, 1); f.restore();
+    stranger(f, 190, 230, .42, { armA: [.2, -2.2], armB: [0, -.3] }); wallet(f, 270, 120, .45, -.2);
+    txt(f, 'tap tap', 260, 60, `34px ${F.marker}`, C.white, { stroke: 5, strokeC: C.ink });
+  }, lt, 5.65, '9:41 PM');
+}
+function sMugBase(g, lt) {
+  const t = q12(lt);
   g.fillStyle = '#d6d3cc'; g.fillRect(0, 0, W, H); g.drawImage(TX.grid, 0, 0, W, H);
   g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = '#c9c5bd'; g.fillRect(0, 0, W, H); g.restore();
   // height chart
   g.strokeStyle = 'rgba(25,25,25,.75)'; g.fillStyle = C.ink;
   for (let i = 0; i <= 16; i++) { const y = 1500 - i * 80, inch = 48 + i * 3; g.lineWidth = i % 2 ? 2 : 5; g.beginPath(); g.moveTo(0, y); g.lineTo(i % 2 ? 120 : W, y); g.stroke(); if (i % 2 === 0) txt(g, `${Math.floor(inch / 12)}'${inch % 12 ? (inch % 12) + '"' : ''}`, 60, y - 26, `30px ${F.anton}`, C.ink); }
   const lean = jit(lt, 1, .01), flipped = t > 2.9;
-  strangerFront(g, 540, 1200, 1.15, { sweat: t > 4.0, mouth: t > 4.2 && t < 5.0 ? .4 : 0, smile: t > 5.6 ? 1 : 0 });
+  strangerFront(g, 540, 1200, 1.15, { sweat: t > 4.0, mouth: t > 4.2 && t < 5.0 ? .4 : 0, smile: t > 7.6 ? 1 : 0 });
   // placard
   g.save(); g.translate(540, 1500); g.rotate(lean + (flipped ? .02 : -.02));
   const flipS = Math.abs(Math.cos(smooth(2.7, 3.0, t) * Math.PI));
@@ -1616,12 +1753,12 @@ function sMug(g, lt) {
     part(g, P(hx - 120, 730, hx - 108, 760, hx - 132, 760), '#9fd3e8', { rim: 3, ht: 0 });
     bubble(g, 'oh.', hx + 20, 640, { size: 70, scale: pop(lt, 4.5, .2), tail: -1, seed: 40 });
   }
-  if (t > 5.0) {
+  if (t > 7.0) {
     torn(g, [[60, 1730], [1020, 1720], [1020, 1860], [60, 1870]], { tex: TX.white, seed: 961, amp: 5 });
-    typed(g, 'MOTIVE: RETURNING A WALLET.', 100, 1796, lt, 5.0, 26, 44, C.ink);
+    typed(g, 'MOTIVE: RETURNING A WALLET.', 100, 1796, lt, 7.0, 26, 44, C.ink);
   }
-  stamp(g, 'CASE CLOSED', 500, 250, lt, 6.4, { size: 92, rot: .1, col: '#2e6d4a', seed: 7 });
-  if (t > 6.8) txt(g, '(awkwardly)', 520, 375, `44px ${F.marker}`, '#2e6d4a', { rot: .1 });
+  stamp(g, 'CASE CLOSED', 500, 250, lt, 8.4, { size: 92, rot: .1, col: '#2e6d4a', seed: 7 });
+  if (t > 8.8) txt(g, '(awkwardly)', 520, 375, `44px ${F.marker}`, '#2e6d4a', { rot: .1 });
   // flash
   const fl = Math.max(clamp(1 - (lt - .2) / .3), clamp(1 - (lt - 1.0) / .3));
   if (lt > .2 && fl > 0) { g.save(); g.globalAlpha = fl * .85; g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.restore(); }
@@ -1667,7 +1804,7 @@ function drawScene(g, i, t) {
   SCENES[i](g, lt);
   reset(g);
 }
-const SHAKES = [[S0(2) + 7.3, .3, 14], [S0(3) + 5.4, .25, 10], [S0(3) + 6.9, .3, 10], [S0(4) + 3.0, .3, 12], [S0(4) + 5.8, .3, 16], [S0(4) + PJ + .8, .3, 16], [S0(4) + 7.85, .3, 10], [S0(6) + 3.8, .25, 10], [S0(7) + 1.6, .3, 16], [S0(7) + 6.4, .3, 12]];
+const SHAKES = [[S0(2) + 7.3, .3, 14], [S0(3) + 5.4, .25, 10], [S0(3) + 6.9, .3, 10], [S0(4) + 3.0, .3, 12], [S0(4) + CC_REAL(5.8), .3, 16], [S0(4) + CC_REAL(PJ + .8), .3, 16], [S0(4) + CC_REAL(7.85), .3, 10], [S0(6) + 3.8, .25, 10], [S0(7) + 1.6, .3, 16], [S0(7) + 8.4, .3, 12]];
 function shakeAt(t) { for (const [a, d, amp] of SHAKES) if (t >= a && t < a + d) return amp * (1 - (t - a) / d); return 0; }
 function tornEdgePts(a, b, seed, amp = 14) { return tornPts([a, b], seed, amp, 16, false); }
 function renderFrame(t) {
@@ -1752,36 +1889,39 @@ function post(t) {
 /* sound cues for the soundtrack generator */
 window.__CUES = {
   total: TOTAL, scenes: SC.map(s => s[1]),
-  whoosh: [6.4, 18.1, 28.2, 37.0, 47.6, 53.5, 67.6, S0(4) + 4.9],
-  rip: [18.1, 28.2, 47.6, 67.6],
+  whoosh: [6.4, 18.1, 28.2, 37.0, 47.6, 53.5, 69.6, S0(4) + 4.9, S0(1) + 3.3, S0(1) + 3.95, S0(1) + 6.4, S0(3) + 3.7, S0(6) + 3.7, S0(7) + 4.6, S0(7) + 6.7],
+  rip: [18.1, 28.2, 47.6, 69.6],
   beep: [0, .43, .86],
   pops: [2.7, S0(0) + 4.9, S0(0) + 5.15, S0(0) + 6.05, S0(0) + 6.3, S0(0) + 6.55, S0(2) + .4, S0(2) + 1.4, S0(2) + 2.2, S0(2) + 3.0, S0(2) + 8.1, S0(3) + 1.7, S0(3) + 3.0, S0(6) + 4.9, S0(6) + 4.98, S0(6) + 5.06, S0(6) + 5.14, S0(6) + 5.22, S0(6) + 5.3, S0(8) + 3.0, S0(8) + 3.08, S0(8) + 3.16, S0(8) + 3.2, S0(8) + 3.28, S0(8) + 3.36],
-  type: [[S0(1) + 9.9, 1.25], [S0(2) + 4.6, .7], [S0(2) + 5.5, 1.3], [S0(2) + 6.9, .8], [S0(3) + .4, .8], [S0(3) + 4.5, .6], [S0(4) + 8.6, .7], [S0(5) + 4.6, .8], [S0(7) + 5.0, 1.05]],
-  sting: [1.4, S0(1) + 2.7, S0(1) + 5.4, S0(1) + 7.6, S0(3) + 4.6],
+  type: [[S0(1) + 9.9, 1.25], [S0(2) + 4.6, .7], [S0(2) + 5.5, 1.3], [S0(2) + 6.9, .8], [S0(3) + .4, .8], [S0(3) + 4.5, .6], [S0(4) + CC_REAL(8.6), .7], [S0(5) + 4.6, .8], [S0(7) + 7.0, 1.05], [S0(7) + 4.6, .8]],
+  sting: [1.4, S0(1) + 2.7, S0(1) + 3.3, S0(1) + 5.4, S0(1) + 7.6, S0(3) + 3.75, S0(3) + 4.6],
   honk: [S0(4) + 5.0, S0(4) + 5.2],
-  cars: [S0(3) + 5.7, S0(3) + 7.9, S0(4) + .2, S0(4) + 2.2, S0(4) + 4.9, S0(4) + 6.4],
-  siren: [S0(3) + 6.3, S0(4) + 8.2],
-  screech: [S0(3) + 6.9, S0(4) + 7.3, S0(4) + 7.85],
+  cars: [S0(3) + 5.7, S0(3) + 7.9, S0(4) + .2, S0(4) + 2.2, S0(4) + 4.9, S0(4) + CC_REAL(6.4)],
+  siren: [S0(3) + 6.3, S0(4) + CC_REAL(8.2)],
+  screech: [S0(3) + 6.9, S0(4) + CC_REAL(7.3), S0(4) + CC_REAL(7.85)],
   peekDuck: [S0(1) + 4.2, S0(1) + 6.8],
   freeze: [S0(1) + 8.95],
-  sip: [S0(1) + 1.5, S0(4) + PJ + .3],
-  stamp: [S0(2) + 7.3, S0(2) + 7.7, S0(7) + 1.6, S0(7) + 6.4, 4.9, 5.15],
+  sip: [S0(1) + 1.5, S0(4) + CC_REAL(PJ + .3)],
+  stamp: [S0(2) + 7.3, S0(2) + 7.7, S0(7) + 1.6, S0(7) + 8.4, 4.9, 5.15],
+  tap: [S0(1) + 3.35, S0(1) + 3.5, S0(1) + 3.65, S0(1) + 3.8, S0(7) + 5.7, S0(7) + 5.85],
   bam: [S0(3) + 5.4],
   boing: [S0(4) + 5.0, S0(4) + PJ, S0(3) + 5.0, S0(3) + 7.2],
   zip: [S0(3) + 5.7, S0(3) + 7.9],
   whistle: [S0(6) + 5.1],
   slip: [S0(4) + 3.0],
-  crash: [S0(4) + 5.8, S0(4) + PJ + .8],
+  crash: [S0(4) + CC_REAL(5.8), S0(4) + CC_REAL(PJ + .8)],
   skid: [],
   moon: [],
-  click: [S0(6) + 3.8],
+  click: [S0(6) + 3.82],
   shutter: [S0(7) + .2, S0(7) + 1.0, S0(6) + 6.05],
   trombone: [S0(7) + 4.2],
   chime: [S0(7) + 3.3],
-  steps: [[S0(3) + .6, S0(3) + 4.4], [S0(4) + 7.6, S0(5) + 5.0]],
+  steps: [[S0(3) + .6, S0(3) + 3.7], [S0(4) + CC_REAL(7.6), S0(5) + 5.0]],
   dread: [S0(1) + 2.7, S0(3) + 4.4],
   chase: [S0(3) + 5.0, S0(6) + 1.4],
-  hush: [0, 0],
+  hush: [S0(4) + 5.5, S0(4) + 7.1],
+  slowmo: [S0(4) + 5.5, S0(4) + 7.1],
+  flash: [S0(7) + 4.6, S0(7) + 6.7],
   caught: S0(6), mug: S0(7), end: S0(8),
 };
 

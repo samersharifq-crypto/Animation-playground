@@ -254,6 +254,13 @@ def screech(dd=.55):
     x = ts(dd); f = 2400 - 600 * x / dd
     return (np.sin(2 * np.pi * np.cumsum(f) / SR) * .4 + filt(noise(dd), 1500, 5000) * .9) * np.sin(np.pi * x / dd) ** .5
 for a in cues.get('screech', []): add(screech(), a, .25)
+def knock():
+    x = ts(.12); return (np.sin(2 * np.pi * 180 * x) * .8 + filt(noise(.12), 400, 3000) * .5) * np.exp(-x * 40)
+for a in cues.get('tap', []): add(knock(), a, .35, pan=-.3)
+for a0, a1 in [cues['slowmo']] if cues.get('slowmo') else []:
+    d = a1 - a0; x = ts(d)
+    add(filt(noise(d), 40, 400) * np.sin(np.pi * x / d) * 1.4 + np.sin(2 * np.pi * 45 * x) * np.sin(np.pi * x / d) * .6, a0, .35)
+    for k in range(3): add(kick(), a0 + .2 + k * .5, .3)
 STP = step()
 for a, b2 in cues['steps']:
     k = a; i = 0
