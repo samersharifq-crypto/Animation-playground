@@ -74,7 +74,7 @@ while tt < SC[1] - .2:
         add(pluck(midi(m - 12), .45, .16), at, .5)
         add(brush(), at, .09 if k % 2 else .05, pan=.3)
     tt += 4 * b
-add(brass([midi(62), midi(65), midi(69), midi(72)], 1.2, .8), 2.35, .12)   # stab under "WINDOW"
+add(brass([midi(62), midi(65), midi(69), midi(72)], 1.2, .8), 4.9, .12)   # stab under the title
 # 2) café: soft jazz piano until the first peek, then the dread
 cafe0, dread0, dread1 = SC[1], cues['dread'][0], cues['dread'][1]
 chords = [[50, 53, 57, 60, 64], [55, 59, 62, 65, 69], [48, 52, 55, 59, 62], [57, 61, 64, 67]]
@@ -106,7 +106,7 @@ add(brass([midi(50), midi(53), midi(56)], .6), SC[2] + 7.3, .18)    # WANTED
 add(brass([midi(57), midi(62), midi(66)], .8), SC[2] + 8.1, .16)    # I'm on it (major lift)
 # 4) the chase: fast comic oom-pah with a running xylophone melody
 c0, c1 = cues['chase']
-hush0, hush1 = SC[4] + 6.5, SC[4] + 8.65       # the newspaper disguise
+hush0, hush1 = cues.get('hush', [0, 0])
 bpm = 168; b = 60 / bpm
 mel = [62, 64, 65, 67, 69, 67, 65, 64, 62, 65, 69, 74, 73, 69, 65, 61,
        62, 64, 65, 67, 69, 70, 69, 67, 65, 67, 69, 65, 62, 61, 62, 0]
@@ -244,6 +244,16 @@ def carby(dd=1.6):
     x = ts(dd); s = filt(noise(dd), 60, 600) * 1.5 + np.sin(2 * np.pi * np.cumsum(70 + 20 * np.sin(np.pi * x / dd)) / SR) * .4
     return s * np.sin(np.pi * x / dd) ** 2
 for i, a in enumerate(cues.get('cars', [])): add(carby(), a, .3, pan=(-.5 if i % 2 else .5))
+for a in cues.get('beep', []): x = ts(.18); add(np.sin(2 * np.pi * 1000 * x) * np.minimum(1, (0.18 - x) / .02), a, .12)
+def siren(dd):
+    x = ts(dd); f = 950 + 350 * np.sign(np.sin(2 * np.pi * .9 * x))
+    return np.sin(2 * np.pi * np.cumsum(f) / SR) * .35 * np.minimum(1, x / .4) * np.minimum(1, (dd - x) / .6)
+sr = cues.get('siren')
+if sr: add(filt(siren(sr[1] - sr[0]), 300, 4000), sr[0], .1, pan=-.3)
+def screech(dd=.55):
+    x = ts(dd); f = 2400 - 600 * x / dd
+    return (np.sin(2 * np.pi * np.cumsum(f) / SR) * .4 + filt(noise(dd), 1500, 5000) * .9) * np.sin(np.pi * x / dd) ** .5
+for a in cues.get('screech', []): add(screech(), a, .25)
 STP = step()
 for a, b2 in cues['steps']:
     k = a; i = 0

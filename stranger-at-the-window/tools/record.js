@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
 const { spawn, execFileSync } = require('child_process');
 const http = require('http'), fs = require('fs'), path = require('path');
 const dir = path.join(__dirname, '..'), fps = 24;
-const TYPES = { '.html': 'text/html', '.png': 'image/png', '.m4a': 'audio/mp4' };
+const TYPES = { '.html': 'text/html', '.png': 'image/png', '.jpg': 'image/jpeg', '.m4a': 'audio/mp4' };
 const srv = http.createServer((q, r) => {
   const f = path.join(dir, decodeURIComponent(q.url.split('?')[0]));
   if (!f.startsWith(dir)) { r.writeHead(403); r.end(); return; }

@@ -71,16 +71,36 @@ Open `steve-jobs/index.html` to play it (space = play/pause, M = sound, click th
 
 ## stranger-at-the-window/ — *The Stranger at the Window*
 
-A 68-second vertical (9:16) cut-paper collage thriller with a comic chase. It borrows from the reference collages: grid paper, a mustard sun, torn grey cardboard and kraft, torn watercolour strips, a torn hole in a face, a giant hand reaching in from above, halftone cut-outs with white scissor borders and ransom-note type. Characters move on twelves, like stop-motion, and the camera moves smoothly. The hero is a real photo cut-out (`img/hero.png`, supplied by the author). In the running scenes he has a big photo head on a small cut-paper body: a white thobe, a black bisht with braided gold trim, and leather shoes. Everything else is drawn live on canvas. The cities are built like newspaper collages, and the thriller plays out at night. The buildings are torn sheets of newsprint, crosswords, stock-market pages, brick, blue-and-white tiles and folk patterns, with warm lit windows and silhouettes. The sky is torn navy paper with paper stars and a mustard moon, the street is cobbles of torn scraps, and street lamps throw yellow spotlight cones. The evidence board tears open in a hole with curled flaps to reveal the street. Collage traffic (a mosaic yellow taxi, the No. 7 bus, red and teal cars with headlight beams and turning wheels) and newspaper-cut passers-by fill the café window, the street outside and the chase, and the passers-by jump as the chase rushes past. The taxi honks.
+A 74-second vertical (9:16) cut-paper collage thriller, made as a stop-motion movie. The whole picture moves on twelves, with gate weave, exposure flicker and paper grain. It borrows from the reference collages:
+- a night city built from torn newsprint, crosswords, stock pages, brick and blue-and-white tiles, with warm lit windows
+- torn navy skies with paper stars and a mustard moon
+- spotlight street lamps and cobbles of torn scraps
+- a torn hole in a face, a giant hand from above, and halftone cut-outs with white scissor borders
 
-1. **Title**: ransom-note letters over the sun, a case-file strip, and a pair of sunglasses peeking up. A magnifying glass swallows the frame.
-2. **Café Rosa**: he sips coffee and reads *How to Spot a Spy*. Outside the glass a stranger keeps popping up behind a newspaper with two eye-holes, from below, upside down and from the side. He ducks every time the reader turns. Freeze frame: SUSPECT / WITNESS.
-3. **The evidence board**: torn cardboard and kraft, polaroids (a suspect with a torn hole for a face, the newspaper, a bitten croissant, footprints to the door), red string, a typed index card, the magnifier and a WANTED (for staring) stamp. *"I'm on it."*
-4. **Bursting out**: BAM! The stranger jumps out of his hat, spins his legs into a wheel and is gone.
-5. **The chase**: a parallax street under torn watercolour skies. A constable joins with his whistle, slips on a banana peel and spins, and the hero hops over it mid-sip (*coffee spilled: 0*). Then the newspaper disguise, a skid and a moonwalk back.
-6. **The stairs**: up a torn cardboard staircase to a dead end.
-7. **Caught**: a giant police hand plucks him off the cliff. He keeps running in mid-air, the cuffs click, and *GOTCHA*.
-8. **Mugshot**: flash, CAUGHT. He flips the placard over: he was only trying to return the wallet. *oh.* CASE CLOSED (awkwardly).
-9. **The end**: back in the café, wallet returned, and now two newspapers with eye-holes at the window. *…or is it?*
+**The hero** is a paper puppet built from a real photo (`img/hero.png`, supplied by the author). The head, shoulders and chest are the photo. The sleeves and cloak are cut from the photo's own black bisht cloth (`img/bisht.jpg`), and the trim from its gold zari (`img/gold.jpg`). He wears a white paper thobe and leather shoes, and every joint is a brass split pin.
 
-Open `stranger-at-the-window/index.html` to play it (space = play/pause, M = sound, click the bar to seek). `stranger-at-the-window/stranger-at-the-window.mp4` is the rendered 1080×1920 24fps video. Its generated soundtrack (spy-jazz bass, café piano, a dread drone and heartbeat, a comic xylophone chase, a sad trombone, plus rips, stamps, whistles, boings, shutters and handcuffs on cue) is also saved as `soundtrack.m4a` for the player. To render it again, run `node stranger-at-the-window/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
+**The stranger** has a drawn, noir-lit face: a fedora brim shadow over the eyes, stubble, a moustache and halftone print.
+
+1. **Intro**: a film-leader countdown, then a torn *HAVE YOU SEEN THIS MAN?* poster on a brick wall under a lamp, whose eyes follow you. The title strips are slapped on, and the cast appears: The Reader, The Stranger, The Constable.
+2. **Café Rosa**: he sips coffee and reads *How to Spot a Spy*. The stranger's face rises at the glass, hangs upside down from the top, then slides in behind a newspaper with eye-holes. Freeze frame: SUSPECT / WITNESS.
+3. **The evidence board**: polaroids, red string, a typed index card and a WANTED (for staring) stamp. It tears open in a hole to reveal the street.
+4. **Following the clues**: magnifier in hand, he follows glowing footprints and croissant crumbs to the stranger under a street lamp, who dives into a taxi (SLAM!). A police car screeches up: *HOP IN!*
+5. **The car chase**: sirens through the collage city, with the stranger leaning out of the taxi and the hero leaning out of the police car, coffee in hand.
+   - The police car hits a thrown banana peel and spins.
+   - Both cars launch off a newspaper ramp over the oncoming No. 7 bus (*sip.*, coffee spilled: 0).
+   - The taxi skids to a stop at a cardboard staircase.
+6. **The stairs**: up to a dead end.
+7. **Caught**: a giant police hand plucks him off a brick rooftop under the moon. *GOTCHA*.
+8. **Mugshot**: CAUGHT. The placard flips: he was only trying to return the wallet. *oh.* CASE CLOSED (awkwardly).
+9. **The end**: back in the café with two newspapers at the window, *…or is it?*, and closing credits.
+
+Open `stranger-at-the-window/index.html` to play it (space = play/pause, M = sound, click the bar to seek). `stranger-at-the-window/stranger-at-the-window.mp4` is the rendered 1080×1920 video.
+
+The generated soundtrack is also saved as `soundtrack.m4a` for the player. It has:
+- a countdown beep, spy-jazz bass and café piano
+- a dread drone and heartbeat, and a ticking clock
+- a comic xylophone chase with a siren, tyre screeches, a horn and passing cars
+- a sad trombone
+- rips, stamps, boings and handcuffs on cue
+
+To render it again, run `node stranger-at-the-window/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
