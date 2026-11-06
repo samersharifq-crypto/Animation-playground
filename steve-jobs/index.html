@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>من المرآب</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@700&family=Lalezar&family=Amiri:ital,wght@1,400;1,700&family=Tajawal:wght@500;800&family=Oswald:wght@600&family=Playfair+Display:ital,wght@1,700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #0e0b09; --ink: #f3ece2; --line: rgba(243,236,226,.22); --accent: #e0262b; --btn: #221b16; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  #wrap { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  #stage { position: relative; background: #000; box-shadow: 0 20px 60px rgba(0,0,0,.55); max-width: 100%; }
+  #art { display: block; width: 100%; height: 100%; }
+  #controls { display: flex; align-items: center; gap: 10px; direction: ltr; font: 500 13px/1 system-ui, sans-serif; max-width: 100%; }
+  #controls button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--btn); color: var(--ink); font-size: 15px; cursor: pointer; display: grid; place-items: center; flex: none; }
+  #controls button:hover { border-color: rgba(243,236,226,.55); }
+  #controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #controls button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  #bar { position: relative; flex: 1; min-width: 0; height: 28px; cursor: pointer; touch-action: none; }
+  #bar::before { content: ""; position: absolute; left: 0; right: 0; top: 13px; height: 2px; border-radius: 2px; background: var(--line); }
+  #fill { position: absolute; left: 0; top: 13px; height: 2px; width: 0; border-radius: 2px; background: var(--accent); }
+  #time { font-variant-numeric: tabular-nums; opacity: .7; min-width: 74px; text-align: right; }
+  #loading { position: absolute; inset: 0; display: grid; place-items: center; font: 400 15px system-ui, sans-serif; color: rgba(243,236,226,.6); }
+</style>
+</head>
+<body>
+<main id="wrap">
+  <div id="stage">
+    <canvas id="art" width="1080" height="1920" role="img" aria-label="من المرآب: موشن غرافيك عن ستيف جوبز وكيف بدأ شركة Apple"></canvas>
+    <div id="loading">…</div>
+  </div>
+  <div id="controls">
+    <button id="pp" aria-label="إيقاف مؤقت" title="Pause / Play (Space)">❚❚</button>
+    <button id="rp" aria-label="إعادة التشغيل" title="Replay">↺</button>
+    <button id="snd" aria-label="الصوت" aria-pressed="false" title="Sound (M)">♪</button>
+    <div id="bar" aria-label="Timeline"><div id="fill"></div></div>
+    <div id="time">0:00 / 1:18</div>
+  </div>
+</main>
+<audio id="music" src="soundtrack.m4a" preload="auto"></audio>
+<script>
+"use strict";
+/* =====================================================================
+   من المرآب — Steve Jobs and the garage that became Apple
+   A 78-second vertical motion graphic in a retro "museum wall" style:
+   lamp-lit panelled walls, framed photographs that swing in, word-by-word
+   type, yellow torn labels, a smoky black-and-white collage, a cutting mat,
+   a blue spotlight and a white gallery wall. Photos: Wikimedia Commons
+   (see CREDITS.md). Every frame is a pure function of time.
+   ===================================================================== */
+const W = 1080, H = 1920;
+const art = document.getElementById('art');
+const ctx = art.getContext('2d');
+const BUF = document.createElement('canvas'); BUF.width = W; BUF.height = H;
+const bctx = BUF.getContext('2d');
+
+/* ---------------- helpers ---------------- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const ease = t => (t = clamp(t), t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOut = t => 1 - Math.pow(1 - clamp(t), 3);
+const easeBack = t => { t = clamp(t); const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+const ar = s => String(s).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+const TAU = Math.PI * 2;
+function reset(g) { g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.shadowBlur = 0; g.shadowColor = 'transparent'; g.filter = 'none'; }
+// fade in at a, hold, fade out at b
+const life = (lt, a, b, fi = .35, fo = .35) => Math.min(smooth(a, a + fi, lt), b == null ? 1 : 1 - smooth(b, b + fo, lt));
+
+/* ---------------- fonts ---------------- */
+const RUQ = '"Aref Ruqaa", "Amiri", serif';
+const LAL = '"Lalezar", "Tajawal", sans-serif';
+const AMI = '"Amiri", serif';
+const SANS = '"Tajawal", "Noto Sans Arabic", sans-serif';
+const NUM = '"Oswald", "Impact", sans-serif';
+const LAT = '"Playfair Display", Georgia, serif';
+
+function txt(g, s, x, y, o = {}) {
+  const a = (o.a ?? 1); if (a <= 0) return;
+  g.save();
+  g.globalAlpha *= a;
+  g.font = `${o.it ? 'italic ' : ''}${o.w || 500} ${o.size || 44}px ${o.font || SANS}`;
+  g.direction = o.ltr ? 'ltr' : 'rtl'; g.textAlign = o.al || 'center'; g.textBaseline = 'alphabetic';
+  if ('letterSpacing' in g) g.letterSpacing = o.ls || '0px';
+  g.translate(x, y); if (o.rot) g.rotate(o.rot); if (o.sc && o.sc !== 1) g.scale(o.sc, o.sc); if (o.skew) g.transform(1, 0, o.skew, 1, 0, 0);
+  if (o.sh) { g.shadowColor = o.sh; g.shadowBlur = o.blur ?? 24; g.shadowOffsetY = o.shy ?? 4; }
+  if (o.stroke) { g.lineWidth = o.stroke; g.strokeStyle = o.sc2 || '#000'; g.lineJoin = 'round'; g.strokeText(s, 0, 0); }
+  g.fillStyle = o.c || '#fff';
+  g.fillText(s, 0, 0, o.max || W - 100);
+  g.restore();
+}
+// a line that rises into place at t0 and (optionally) leaves at t1
+function beat(g, s, x, y, lt, t0, o = {}, t1 = null) {
+  const k = easeOut((lt - t0) / .6); if (k <= 0) return;
+  let a = k; if (t1 != null) a *= 1 - smooth(t1, t1 + .35, lt); if (a <= 0) return;
+  txt(g, s, x, y + (1 - k) * 28, { ...o, a: (o.a ?? 1) * a });
+}
+// word-by-word reveal, laid out right-to-left around cx (or from a right edge)
+function words(g, s, cx, y, lt, t0, step, o = {}, t1 = null) {
+  const ws = s.split(' ');
+  g.save(); g.font = `${o.it ? 'italic ' : ''}${o.w || 500} ${o.size || 44}px ${o.font || SANS}`; g.direction = o.ltr ? 'ltr' : 'rtl';
+  const wd = ws.map(w => g.measureText(w).width); g.restore();
+  const sp = (o.size || 44) * (o.gap ?? .3), tot = wd.reduce((a, b) => a + b, 0) + sp * (ws.length - 1);
+  const out = t1 == null ? 1 : 1 - smooth(t1, t1 + .35, lt); if (out <= 0) return;
+  let x = o.ltr ? cx - tot / 2 : cx + tot / 2;
+  ws.forEach((w, i) => {
+    const k = clamp((lt - t0 - i * step) / .32);
+    if (k > 0) {
+      const mid = o.ltr ? x + wd[i] / 2 : x - wd[i] / 2;
+      txt(g, w, mid, y + (1 - easeOut(k)) * 22, { ...o, a: (o.a ?? 1) * easeOut(k) * out, sc: lerp(.82, 1, easeBack(k)) });
+    }
+    x += (o.ltr ? 1 : -1) * (wd[i] + sp);
+  });
+}
+// counting number with a red underline sweep, slanted like a retro headline
+function counter(g, from, to, x, y, lt, t0, dur, o = {}) {
+  const k = clamp((lt - t0) / dur); if (lt < t0) return;
+  const v = Math.round(lerp(from, to, easeOut(k)));
+  const s = (o.fmt || String)(v);
+  const a = (o.a ?? 1) * smooth(t0, t0 + .2, lt);
+  txt(g, s, x, y, { size: o.size || 220, font: NUM, w: 600, c: o.c || '#f4ead8', skew: -.16, ltr: true, sh: 'rgba(0,0,0,.55)', blur: 30, a });
+  const uw = (o.uw || 380) * easeOut((lt - t0 - .1) / (dur + .3));
+  g.save(); g.globalAlpha = a; g.fillStyle = '#d4161c'; g.translate(x, y + (o.size || 220) * .12); g.transform(1, 0, -.16, 1, 0, 0);
+  g.fillRect(-(o.uw || 380) / 2, 0, uw, (o.size || 220) * .055); g.restore();
+}
+
+/* ---------------- images ---------------- */
+const NAMES = ['garage', 'jobs1969', 'jobs1972', 'woz1968', 'woz1983', 'apple1', 'apple2', 'mac1984', 'pixar',
+  'macworld2005', 'iphone2007', 'macbookair2008', 'ipad2010', 'headshot2010'];
+const IMG = {};
+const GRADES = {
+  warm: 'sepia(.28) saturate(.95) contrast(1.06) brightness(.97)',
+  sepia: 'sepia(.7) saturate(.85) contrast(1.1) brightness(.9)',
+  bw: 'grayscale(1) contrast(1.28) brightness(.92)',
+  raw: 'none',
+};
+function loadImg(n) {
+  return new Promise(res => {
+    const im = new Image(); im.decoding = 'async';
+    im.onload = () => {
+      IMG[n] = {};
+      for (const [k, f] of Object.entries(GRADES)) {
+        const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+        const g = c.getContext('2d'); g.filter = f; g.drawImage(im, 0, 0); IMG[n][k] = c;
+      }
+      res();
+    };
+    im.onerror = () => { console.warn('missing', n); res(); };
+    im.src = `img/${n}.jpg`;
+  });
+}
+// draw an image cover-cropped into a box; fx/fy pick the focus, z zooms in
+function photo(g, n, x, y, w, h, o = {}) {
+  const set = IMG[n]; if (!set) { g.fillStyle = '#555'; g.fillRect(x, y, w, h); return; }
+  const im = set[o.v || 'warm'], iw = im.width, ih = im.height;
+  const z = o.z || 1, s = Math.max(w / iw, h / ih) * z, sw = w / s, sh = h / s;
+  const sx = clamp((iw - sw) * (o.fx ?? .5), 0, iw - sw), sy = clamp((ih - sh) * (o.fy ?? .5), 0, ih - sh);
+  g.drawImage(im, sx, sy, sw, sh, x, y, w, h);
+}
+// a framed photograph centred on cx,cy. o.k = appear progress (scale), o.rot, o.style
+function framed(g, n, cx, cy, w, h, o = {}) {
+  const a = o.a ?? 1; if (a <= 0) return;
+  const st = o.style || 'gold', b = o.border ?? (st === 'print' ? 26 : 30);
+  g.save(); g.globalAlpha *= a; g.translate(cx, cy); if (o.rot) g.rotate(o.rot);
+  if (o.skew) g.transform(1, o.skew, 0, 1, 0, 0);
+  const sc = o.s ?? 1; g.scale(sc, sc);
+  const X = -w / 2 - b, Y = -h / 2 - b, FW = w + 2 * b, FH = h + 2 * b;
+  // drop shadow
+  g.save(); g.shadowColor = o.shadow || 'rgba(0,0,0,.6)'; g.shadowBlur = o.sb ?? 50; g.shadowOffsetX = o.sx ?? 14; g.shadowOffsetY = o.sy ?? 30;
+  g.fillStyle = '#000'; g.fillRect(X, Y, FW, FH); g.restore();
+  if (st === 'gold') {
+    const gr = g.createLinearGradient(X, Y, X + FW, Y + FH);
+    gr.addColorStop(0, '#f2cd7a'); gr.addColorStop(.35, '#b07a2c'); gr.addColorStop(.6, '#e6b35a'); gr.addColorStop(1, '#6e4514');
+    g.fillStyle = gr; g.fillRect(X, Y, FW, FH);
+    g.strokeStyle = 'rgba(60,32,6,.85)'; g.lineWidth = 3; g.strokeRect(X + 4, Y + 4, FW - 8, FH - 8);
+    g.strokeStyle = 'rgba(255,236,180,.55)'; g.lineWidth = 2; g.strokeRect(X + b * .45, Y + b * .45, FW - b * .9, FH - b * .9);
+    g.fillStyle = '#3a240c'; g.fillRect(-w / 2 - 5, -h / 2 - 5, w + 10, h + 10);
+  } else if (st === 'wood') {
+    const gr = g.createLinearGradient(X, Y, X, Y + FH); gr.addColorStop(0, '#7a4a22'); gr.addColorStop(1, '#3e2210');
+    g.fillStyle = gr; g.fillRect(X, Y, FW, FH);
+    g.strokeStyle = 'rgba(255,210,150,.25)'; g.lineWidth = 2; g.strokeRect(X + 3, Y + 3, FW - 6, FH - 6);
+    g.fillStyle = '#1e1208'; g.fillRect(-w / 2 - 4, -h / 2 - 4, w + 8, h + 8);
+  } else if (st === 'black') {
+    g.fillStyle = '#141414'; g.fillRect(X, Y, FW, FH);
+    g.fillStyle = '#f1efe9'; g.fillRect(X + 10, Y + 10, FW - 20, FH - 20);   // mat
+  } else if (st === 'print') {
+    g.fillStyle = '#ece6da'; g.fillRect(X, Y, FW, FH);
+  }
+  photo(g, n, -w / 2, -h / 2, w, h, o);
+  // glass sheen
+  if (st !== 'print') {
+    const sh = g.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+    sh.addColorStop(0, 'rgba(255,255,255,.10)'); sh.addColorStop(.4, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,.18)');
+    g.fillStyle = sh; g.fillRect(-w / 2, -h / 2, w, h);
+  }
+  if (o.dim) { g.fillStyle = `rgba(0,0,0,${o.dim})`; g.fillRect(X, Y, FW, FH); }
+  g.restore();
+}
+// swing a frame in: from offscreen, rotated, then settle with a small overshoot
+function swing(lt, t0, dur = .9, from = 1) {
+  const k = clamp((lt - t0) / dur), e = easeBack(k);
+  return { k, a: smooth(0, .15, k), dx: (1 - easeOut(k)) * 900 * from, rot: (1 - e) * .55 * from, s: lerp(1.25, 1, easeOut(k)) };
+}
+
+/* ---------------- textures: grain, fog, dust ---------------- */
+const GRAIN = [];
+const FOG = document.createElement('canvas');
+function buildTextures() {
+  const r = mulberry32(7);
+  for (let n = 0; n < 4; n++) {
+    const c = document.createElement('canvas'); c.width = 360; c.height = 640;
+    const g = c.getContext('2d'), id = g.createImageData(360, 640), d = id.data;
+    for (let i = 0; i < d.length; i += 4) { const v = r() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+    g.putImageData(id, 0, 0); GRAIN.push(c);
+  }
+  FOG.width = 720; FOG.height = 1280; const f = FOG.getContext('2d');
+  for (let i = 0; i < 260; i++) {
+    const x = r() * 720, y = r() * 1280, rad = 60 + r() * 220, al = .05 + r() * .12;
+    for (const dx of [-720, 0, 720]) {   // wrap so the texture tiles horizontally
+      const gr = f.createRadialGradient(x + dx, y, 0, x + dx, y, rad);
+      gr.addColorStop(0, `rgba(255,255,255,${al})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      f.fillStyle = gr; f.fillRect(x + dx - rad, y - rad, rad * 2, rad * 2);
+    }
+  }
+}
+function fog(g, T, amt, tint = null, speed = 18) {
+  if (amt <= 0) return;
+  g.save(); g.globalAlpha = clamp(amt);
+  for (const [dir, sy, sc] of [[1, -100, 1.5], [-.6, 60, 1.9]]) {
+    const tw = 720 * sc, off = ((T * speed * dir) % tw + tw) % tw;
+    for (let x = off - tw; x < W; x += tw) g.drawImage(FOG, x, sy, tw, 1280 * sc);
+  }
+  g.restore();
+}
+function grain(g, T, amt) {
+  const c = GRAIN[Math.floor(T * 24) % 4];
+  g.save(); g.globalCompositeOperation = 'overlay'; g.globalAlpha = amt; g.drawImage(c, 0, 0, W, H); g.restore();
+  // dust specks and the odd scratch, like an old print
+  const r = mulberry32(Math.floor(T * 12) + 99);
+  g.save(); g.fillStyle = 'rgba(255,245,225,.5)';
+  for (let i = 0; i < 6; i++) { const s = r() * 3 + .6; g.globalAlpha = r() * .5; g.fillRect(r() * W, r() * H, s, s * (1 + r() * 3)); }
+  if (r() < .25) { g.globalAlpha = .12; g.fillRect(r() * W, 0, 1.5, H); }
+  g.restore();
+}
+function vignette(g, amt) {
+  const v = g.createRadialGradient(W / 2, H * .46, H * .28, W / 2, H * .5, H * .78);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${amt})`);
+  g.fillStyle = v; g.fillRect(0, 0, W, H);
+}
+
+/* ---------------- sets ---------------- */
+// panelled museum wall with a wall lamp; on = lamp intensity 0..1
+function wall(g, on, o = {}) {
+  const base = o.base || ['#4a3121', '#2e1d13'];
+  const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, base[0]); gr.addColorStop(1, base[1]);
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  // side pilasters (the corridor edges)
+  for (const [x, w, dir] of [[0, 96, 1], [W - 96, 96, -1]]) {
+    const pg = g.createLinearGradient(x, 0, x + w, 0);
+    pg.addColorStop(0, dir > 0 ? 'rgba(0,0,0,.55)' : 'rgba(0,0,0,.2)'); pg.addColorStop(1, dir > 0 ? 'rgba(0,0,0,.2)' : 'rgba(0,0,0,.55)');
+    g.fillStyle = pg; g.fillRect(x, 0, w, H);
+    g.fillStyle = 'rgba(255,220,170,.10)'; g.fillRect(dir > 0 ? x + w - 4 : x, 0, 4, H);
+  }
+  // mouldings
+  const mould = (x, y, w, h) => {
+    g.lineWidth = 6; g.strokeStyle = 'rgba(0,0,0,.35)'; g.strokeRect(x + 3, y + 3, w, h);
+    g.lineWidth = 3; g.strokeStyle = 'rgba(255,215,160,.16)'; g.strokeRect(x, y, w, h);
+  };
+  mould(170, 330, W - 340, 860); mould(170, 1360, W - 340, 420);
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(96, 1262, W - 192, 22); g.fillStyle = 'rgba(255,215,160,.14)'; g.fillRect(96, 1258, W - 192, 5);
+  g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(0, H - 90, W, 90);
+  // lamp
+  const lx = o.lx ?? W / 2, ly = o.ly ?? 190;
+  if (on > 0) {
+    g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = on;
+    g.translate(lx, ly + 30); g.scale(1, o.cone ?? 2.1);
+    const lg = g.createRadialGradient(0, 0, 0, 0, 0, o.reach ?? 560);
+    lg.addColorStop(0, 'rgba(255,205,140,.55)'); lg.addColorStop(.3, 'rgba(220,150,80,.25)'); lg.addColorStop(1, 'rgba(120,60,20,0)');
+    g.fillStyle = lg; g.fillRect(-700, -40, 1400, 900); g.restore();
+  }
+  g.save(); g.translate(lx, ly);
+  if (o.bar) {   // picture light bar
+    g.fillStyle = '#2a1a0e'; g.fillRect(-8, -46, 16, 46);
+    g.fillStyle = '#8c6234'; g.fillRect(-200, -6, 400, 20); g.fillStyle = `rgba(255,230,170,${.25 + .75 * on})`; g.fillRect(-196, 12, 392, 5);
+  } else {
+    g.fillStyle = '#1d140d'; g.fillRect(-10, -60, 20, 34);
+    g.beginPath(); g.moveTo(-46, 6); g.lineTo(46, 6); g.lineTo(26, -30); g.lineTo(-26, -30); g.closePath(); g.fill();
+    g.fillStyle = `rgba(255,235,190,${.2 + .8 * on})`; g.beginPath(); g.ellipse(0, 8, 34, 7, 0, 0, TAU); g.fill();
+  }
+  g.restore();
+}
+// warm spotlight pool on a dark gridded wall ("here's a strange fact")
+function spotGrid(g, T, k = 1, hue = 'warm') {
+  g.fillStyle = hue === 'warm' ? '#1a0b05' : '#04080f'; g.fillRect(0, 0, W, H);
+  g.save(); g.globalAlpha = k;
+  g.translate(W / 2, -60); g.scale(1, 2.0);
+  const sg = g.createRadialGradient(0, 0, 0, 0, 0, 640);
+  if (hue === 'warm') { sg.addColorStop(0, 'rgba(250,140,70,1)'); sg.addColorStop(.5, 'rgba(170,70,25,.8)'); sg.addColorStop(1, 'rgba(60,20,6,0)'); }
+  else { sg.addColorStop(0, 'rgba(150,200,240,.95)'); sg.addColorStop(.45, 'rgba(50,90,140,.75)'); sg.addColorStop(1, 'rgba(8,20,40,0)'); }
+  g.fillStyle = sg; g.fillRect(-W, 0, 2 * W, 900); g.restore();
+  if (hue === 'warm') {
+    g.save(); g.globalAlpha = .16 * k; g.strokeStyle = '#ffd3a8'; g.lineWidth = 1.5;
+    for (let x = 0; x <= W; x += 60) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    for (let y = 0; y <= H; y += 60) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    g.globalAlpha = .3 * k; g.lineWidth = 3;
+    for (let x = 0; x <= W; x += 300) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    g.restore();
+  }
+}
+// green self-healing cutting mat
+function mat(g) {
+  g.fillStyle = '#1f5a43'; g.fillRect(0, 0, W, H);
+  const gr = g.createRadialGradient(W / 2, H * .45, 100, W / 2, H * .5, H * .8);
+  gr.addColorStop(0, 'rgba(120,200,160,.18)'); gr.addColorStop(1, 'rgba(0,0,0,.35)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(200,240,220,.18)'; g.lineWidth = 1.2;
+  for (let x = 30; x <= W; x += 45) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  for (let y = 30; y <= H; y += 45) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  g.strokeStyle = 'rgba(220,250,235,.34)'; g.lineWidth = 2.2;
+  for (let x = 30; x <= W; x += 225) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  for (let y = 30; y <= H; y += 225) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  g.save(); g.strokeStyle = 'rgba(230,255,240,.25)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, H); g.lineTo(W, H - W); g.stroke(); g.restore();
+  g.fillStyle = 'rgba(220,250,235,.4)'; g.font = `500 18px ${NUM}`; g.textAlign = 'center';
+  for (let i = 0; i * 45 + 30 <= W; i++) g.fillText(String(i), 30 + i * 45, 22);
+}
+// pale gallery wall with fine vertical stripes
+function whiteWall(g) {
+  g.fillStyle = '#e6e3dd'; g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(0,0,0,.035)'; for (let x = 0; x < W; x += 6) g.fillRect(x, 0, 2, H);
+  const gr = g.createRadialGradient(W * .55, H * .35, 100, W / 2, H / 2, H * .8);
+  gr.addColorStop(0, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(0,0,0,.28)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+}
+// dark charcoal paper with a soft centre glow
+function darkPaper(g, T) {
+  g.fillStyle = '#121110'; g.fillRect(0, 0, W, H);
+  const gr = g.createRadialGradient(W / 2, H / 2, 50, W / 2, H / 2, H * .7);
+  gr.addColorStop(0, 'rgba(90,82,72,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  g.save(); g.globalAlpha = .07; g.translate(W / 2, H / 2); g.rotate(T * .02); g.strokeStyle = '#ddd'; g.lineWidth = 1;
+  for (let i = 0; i < 90; i++) { const a = i / 90 * TAU; g.beginPath(); g.moveTo(Math.cos(a) * 120, Math.sin(a) * 120); g.lineTo(Math.cos(a) * 1300, Math.sin(a) * 1300); g.stroke(); }
+  g.restore();
+}
+
+/* ---------------- props ---------------- */
+// yellow torn-paper tag, wiped on from the right
+function tornLabel(g, s, cx, cy, k, o = {}) {
+  if (k <= 0) return;
+  const size = o.size || 46;
+  g.save(); g.font = `800 ${size}px ${o.font || SANS}`; g.direction = o.ltr ? 'ltr' : 'rtl';
+  const tw = g.measureText(s).width; g.restore();
+  const w = tw + size * 1.3, h = size * 1.55, r = mulberry32(o.seed || 3);
+  const pts = [];
+  for (let x = 0; x <= w; x += 14) pts.push([x - w / 2, -h / 2 + (r() - .5) * 9]);
+  for (let y = 0; y <= h; y += 12) pts.push([w / 2 + (r() - .5) * 10, y - h / 2]);
+  for (let x = w; x >= 0; x -= 14) pts.push([x - w / 2, h / 2 + (r() - .5) * 9]);
+  for (let y = h; y >= 0; y -= 12) pts.push([-w / 2 + (r() - .5) * 10, y - h / 2]);
+  g.save(); g.translate(cx, cy); g.rotate(o.rot ?? -.03);
+  const e = easeOut(k); g.beginPath(); g.rect(w / 2 + 12 - (w + 24) * e, -h, (w + 24) * e, 2 * h); g.clip();
+  g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 16; g.shadowOffsetY = 6;
+  g.fillStyle = o.bg || '#f6d320'; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill();
+  g.shadowColor = 'transparent';
+  g.fillStyle = 'rgba(160,110,0,.18)'; for (let i = 0; i < 40; i++) g.fillRect((r() - .5) * w, (r() - .5) * h, 2, 2);
+  g.fillStyle = o.c || '#d41a1a'; g.font = `800 ${size}px ${o.font || SANS}`; g.direction = o.ltr ? 'ltr' : 'rtl'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(s, 0, size * .06);
+  g.restore();
+}
+// grungy red stamp that slams down
+const STAMPS = {};
+function stamp(g, s, cx, cy, lt, t0, o = {}) {
+  const k = clamp((lt - t0) / .28); if (k <= 0) return;
+  const sc = lerp(2.4, 1, easeOut(k)), size = o.size || 200;
+  const key = s + size; let c = STAMPS[key];
+  if (!c) { c = STAMPS[key] = document.createElement('canvas'); c.width = 900; c.height = 400; const s2 = c.getContext('2d');
+  s2.font = `${size}px ${o.font || LAL}`; s2.textAlign = 'center'; s2.textBaseline = 'middle'; s2.direction = o.ltr ? 'ltr' : 'rtl';
+  s2.fillStyle = '#d4161c'; s2.fillText(s, 450, 210);
+  s2.globalCompositeOperation = 'destination-out'; const r = mulberry32(o.seed || 11);
+  for (let i = 0; i < 900; i++) { const rr = r() * 5 + .5; s2.globalAlpha = r(); s2.beginPath(); s2.arc(r() * 900, r() * 400, rr, 0, TAU); s2.fill(); }
+  for (let i = 0; i < 14; i++) { s2.globalAlpha = .5; s2.fillRect(0, r() * 400, 900, r() * 3); }
+  }
+  g.save(); g.translate(cx, cy); g.rotate(o.rot ?? -.06); g.scale(sc, sc); g.globalAlpha = (o.a ?? .92) * k;
+  g.globalCompositeOperation = o.blend || 'source-over'; g.drawImage(c, -450, -200); g.restore();
+}
+function flash(g, k, c = '255,244,226') { if (k <= 0) return; g.fillStyle = `rgba(${c},${clamp(k)})`; g.fillRect(0, 0, W, H); }
+// slow camera push for a scene
+function cam(g, lt, len, s0 = 1, s1 = 1.06, ox = W / 2, oy = H / 2) {
+  const s = lerp(s0, s1, clamp(lt / len)); g.translate(ox, oy); g.scale(s, s); g.translate(-ox, -oy);
+}
+
+/* =====================================================================
+   SCENES
+   ===================================================================== */
+// 1 — hook: the garage through the fog
+function s1(g, lt) {
+  g.save(); cam(g, lt, 7, 1.18, 1.02, W / 2, H * .62);
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  photo(g, 'garage', -300, 440, W + 600, 1480, { v: 'sepia', fx: .42, fy: .7 });
+  g.fillStyle = 'rgba(14,8,4,.5)'; g.fillRect(0, 0, W, H);
+  const sky = g.createLinearGradient(0, 0, 0, 1100); sky.addColorStop(0, '#0b0603'); sky.addColorStop(.75, 'rgba(11,6,3,.85)'); sky.addColorStop(1, 'rgba(11,6,3,0)');
+  g.fillStyle = sky; g.fillRect(0, 0, W, 1100);
+  g.restore();
+  fog(g, lt, 1 - smooth(.2, 2.2, lt) * .85, null, 60);
+  txt(g, 'ماذا لو', 660, 330, { size: 58, font: AMI, it: true, w: 400, c: '#f3e8d6', a: life(lt, 1.0, null), sh: 'rgba(0,0,0,.6)' });
+  const k = easeBack(clamp((lt - 1.4) / .5));
+  if (lt > 1.4) txt(g, 'مِرآبٌ', 540, 520, { size: 210, font: RUQ, w: 700, c: '#e1242a', sc: lerp(.6, 1, k), a: smooth(1.4, 1.6, lt), sh: 'rgba(0,0,0,.65)', blur: 30 });
+  words(g, 'صغير في بيت عائلة…', 540, 640, lt, 2.2, .16, { size: 54, w: 800, c: '#f3e8d6', sh: 'rgba(0,0,0,.7)' });
+  words(g, 'صنع واحدة من أغلى شركات العالم؟', 540, 726, lt, 3.4, .16, { size: 54, w: 800, c: '#f3e8d6', sh: 'rgba(0,0,0,.7)' });
+  flash(g, smooth(6.0, 6.5, lt) * .9);
+}
+// 2 — 1955: lamp, counter, name tag
+function s2(g, lt) {
+  const on = smooth(.05, .25, lt) * (lt < .6 ? (Math.sin(lt * 70) > -.2 ? 1 : .3) : 1);
+  g.save(); cam(g, lt, 6, 1.0, 1.05); wall(g, on); g.restore();
+  txt(g, '٢٤ فبراير', 540, 520, { size: 52, font: AMI, it: true, w: 700, c: '#f3e3c8', a: life(lt, 1.6, null) });
+  counter(g, 1900, 1955, 540, 760, lt, .5, 1.3, { size: 230, uw: 470 });
+  tornLabel(g, 'ستيف جوبز', 560, 930, clamp((lt - 2.2) / .45), { size: 54, seed: 5 });
+  words(g, 'وُلد في سان فرانسيسكو', 540, 1110, lt, 3.0, .14, { size: 54, w: 800, c: '#f6ead6', sh: 'rgba(0,0,0,.6)' });
+  words(g, 'وتبنّته عائلة جوبز وهو رضيع', 540, 1190, lt, 4.0, .14, { size: 44, w: 500, c: '#d8c4a6' });
+}
+// 3 — school years: two yearbook portraits
+function s3(g, lt) {
+  g.save(); cam(g, lt, 7, 1.04, 1.0); wall(g, 1); g.restore();
+  const a = swing(lt, .1, .9, 1), mv = ease(clamp((lt - 2.6) / .8));
+  framed(g, 'jobs1969', lerp(540, 320, mv) + a.dx, lerp(770, 730, mv), lerp(470, 350, mv), lerp(660, 492, mv), { v: 'bw', rot: a.rot - .035 * mv - .02, s: a.s, a: a.a, fy: .35, style: 'gold' });
+  const b = swing(lt, 2.9, .9, -1);
+  if (lt > 2.9) framed(g, 'jobs1972', 770 + b.dx, 760, 350, 452, { v: 'bw', rot: b.rot + .045, s: b.s, a: b.a, fy: .3, style: 'gold' });
+  counter(g, 1960, 1969, lerp(540, 320, mv), 1200, lt, .6, .8, { size: 74, uw: 150, a: 1 });
+  counter(g, 1965, 1972, 770, 1200, lt, 3.4, .8, { size: 74, uw: 150 });
+  beat(g, 'مدرسة هومستيد الثانوية', 540, 1440, lt, .9, { size: 74, font: LAL, c: '#f1e3cc', sh: 'rgba(0,0,0,.6)' }, 3.4);
+  words(g, 'دخل كلية ريد… وتركها بعد فصلٍ واحد', 540, 1440, lt, 3.8, .12, { size: 52, w: 800, c: '#f6ead6', sh: 'rgba(0,0,0,.6)' });
+  words(g, 'لكنه ظلّ يحضر دروس فنّ الخط', 540, 1530, lt, 5.0, .12, { size: 44, w: 500, c: '#e8b25a' });
+}
+// 4 — the friend: Steve Wozniak, words around the frame
+function s4(g, lt) {
+  g.save(); cam(g, lt, 7, 1.0, 1.06); wall(g, 1, { base: ['#3f2a1d', '#24170f'] }); g.restore();
+  txt(g, '١٩٧١', 540, 300, { size: 64, font: NUM, w: 600, c: '#f4ead8', a: life(lt, .3, null), ltr: true });
+  const a = swing(lt, .2, .9, -1);
+  framed(g, 'woz1968', 540 + a.dx, 770, 420, 510, { v: 'bw', rot: a.rot + .06, s: a.s, a: a.a, fy: .3, style: 'gold' });
+  tornLabel(g, 'ستيف وزنياك', 610, 980, clamp((lt - 1.2) / .45), { size: 50, seed: 9, rot: .04 });
+  txt(g, 'عبقري', 830, 500, { size: 46, w: 800, c: '#fff', a: life(lt, 2.0, null), sh: 'rgba(0,0,0,.7)' });
+  txt(g, 'إلكترونيات', 225, 640, { size: 46, w: 800, c: '#fff', a: life(lt, 2.4, null), sh: 'rgba(0,0,0,.7)' });
+  txt(g, 'مقالب', 250, 1090, { size: 46, w: 800, c: '#fff', a: life(lt, 2.8, null), sh: 'rgba(0,0,0,.7)' });
+  beat(g, 'الصديق', 540, 1300, lt, 1.6, { size: 110, font: LAL, c: '#f1e3cc', sh: 'rgba(0,0,0,.6)' });
+  words(g, 'وزنياك يبني الجهاز…', 540, 1450, lt, 3.6, .14, { size: 52, w: 800, c: '#f6ead6', sh: 'rgba(0,0,0,.6)' });
+  words(g, 'وجوبز يرى كيف يصل إلى الناس', 540, 1530, lt, 4.6, .14, { size: 52, w: 800, c: '#e8b25a', sh: 'rgba(0,0,0,.6)' });
+  flash(g, smooth(6.5, 7.0, lt));
+}
+// 5 — 1976: black-and-white collage in the smoke
+function s5(g, lt) {
+  g.fillStyle = '#1b1b1b'; g.fillRect(0, 0, W, H);
+  g.save(); cam(g, lt, 8, 1.12, 1.0, W / 2, H * .45);
+  const drift = lt * 6;
+  const P = [
+    ['garage', 300, 420, 620, 430, -.12, .3], ['woz1983', 850, 470, 330, 430, .14, .3], ['apple1', 560, 900, 760, 460, .05, .5],
+    ['jobs1972', 230, 1330, 380, 490, -.09, .3], ['garage', 820, 1400, 520, 360, .1, .8],
+  ];
+  P.forEach(([n, x, y, w, h, r, fy], i) => {
+    const k = clamp((lt - i * .12) / .6);
+    framed(g, n, x + (i % 2 ? -drift : drift), y + (1 - easeOut(k)) * 300, w, h, { v: 'bw', rot: r + (1 - easeOut(k)) * .3, style: 'print', border: 18, fy, a: smooth(0, .3, k), sb: 40, sy: 20, shadow: 'rgba(0,0,0,.8)' });
+  });
+  g.restore();
+  g.fillStyle = 'rgba(10,10,10,.5)'; g.fillRect(0, 0, W, H);
+  fog(g, lt + 30, .4, null, 40);
+  stamp(g, '1976', 540, 760, lt, .8, { size: 270, font: NUM, ltr: true, rot: -.08 });
+  txt(g, 'جوبز · وزنياك · رونالد واين', 540, 920, { size: 40, w: 800, c: '#f0f0f0', a: life(lt, 1.5, null), sh: 'rgba(0,0,0,.9)' });
+  beat(g, '١ أبريل: وُلدت Apple', 540, 1120, lt, 2.0, { size: 90, font: LAL, c: '#ffffff', sh: 'rgba(0,0,0,.9)', blur: 30 });
+  words(g, 'باع جوبز سيارته الفولكس فاغن', 540, 1300, lt, 3.4, .12, { size: 50, w: 800, c: '#f4f4f4', sh: 'rgba(0,0,0,.9)' });
+  words(g, 'وباع وزنياك آلته الحاسبة', 540, 1380, lt, 4.3, .12, { size: 50, w: 800, c: '#f4f4f4', sh: 'rgba(0,0,0,.9)' });
+  counter(g, 0, 1300, 540, 1620, lt, 5.2, 1.4, { size: 170, uw: 430, fmt: v => '$' + v.toLocaleString('en-US') });
+  txt(g, 'كل رأس المال تقريباً', 540, 1720, { size: 40, w: 500, c: '#cfcfcf', a: life(lt, 6.2, null) });
+}
+// 6 — the Apple I under a picture light
+function s6(g, lt) {
+  g.save(); cam(g, lt, 6, 1.0, 1.05, W / 2, 700);
+  wall(g, 1, { bar: true, ly: 380, reach: 700, cone: 1.6, base: ['#3a271b', '#1d130c'] });
+  const a = swing(lt, .1, 1.0, 1);
+  framed(g, 'apple1', 540 + a.dx, 780, 800, 486, { v: 'warm', rot: a.rot - .015, s: a.s, a: a.a, style: 'gold', fy: .55 });
+  g.restore();
+  txt(g, 'Apple I', 540, 300, { size: 84, font: LAT, it: true, w: 700, c: '#f6e7cc', ltr: true, a: life(lt, .8, null), sh: 'rgba(0,0,0,.6)' });
+  txt(g, 'أول طلب', 820, 640, { size: 50, w: 800, c: '#fff', a: life(lt, 1.5, null), sh: 'rgba(0,0,0,.8)', al: 'right' });
+  txt(g, '٥٠ جهازاً', 300, 900, { size: 50, w: 800, c: '#fff', a: life(lt, 2.0, null), sh: 'rgba(0,0,0,.8)' });
+  tornLabel(g, 'Byte Shop', 540, 1130, clamp((lt - 2.5) / .45), { size: 50, seed: 12, ltr: true, font: SANS, rot: -.02 });
+  words(g, 'مجرد لوحة إلكترونية… بلا شاشة ولا لوحة مفاتيح', 540, 1330, lt, 3.0, .1, { size: 44, w: 800, c: '#f6ead6', sh: 'rgba(0,0,0,.6)' });
+  counter(g, 0, 66666, 540, 1580, lt, 3.8, 1.2, { size: 160, uw: 520, fmt: v => '$' + (v / 100).toFixed(2) });
+  txt(g, 'سعر الجهاز الواحد', 540, 1680, { size: 40, w: 500, c: '#d8c4a6', a: life(lt, 4.6, null) });
+}
+// 7 — Apple II on the cutting mat, the IPO
+function s7(g, lt) {
+  g.save(); cam(g, lt, 6, 1.06, 1.0); mat(g); g.restore();
+  const k = easeOut(clamp((lt - .1) / .8));
+  framed(g, 'apple2', 540, lerp(1500, 900, k), 820, 546, { v: 'warm', rot: lerp(.2, -.03, k), style: 'print', border: 22, a: smooth(.1, .3, lt), sb: 30, sy: 24, shadow: 'rgba(0,20,10,.55)' });
+  counter(g, 1970, 1977, 540, 420, lt, .4, .8, { size: 170, uw: 330 });
+  txt(g, 'Apple II', 540, 540, { size: 74, font: LAT, it: true, w: 700, c: '#ffffff', ltr: true, a: life(lt, .9, null), sh: 'rgba(0,0,0,.5)' });
+  words(g, 'حاسوب بشاشة ملونة… لكل بيت', 540, 1310, lt, 1.6, .12, { size: 52, w: 800, c: '#ffffff', sh: 'rgba(0,0,0,.5)' }, 3.5);
+  beat(g, '١٩٨٠ · الطرح العام', 540, 1330, lt, 3.7, { size: 76, font: LAL, c: '#fff4c0', sh: 'rgba(0,0,0,.5)' });
+  words(g, 'ثروته تتجاوز ٢٠٠ مليون دولار', 540, 1440, lt, 4.3, .12, { size: 50, w: 800, c: '#ffffff', sh: 'rgba(0,0,0,.5)' });
+  tornLabel(g, 'وعمره ٢٥ عاماً فقط', 540, 1560, clamp((lt - 5.0) / .4), { size: 46, seed: 21, rot: .02 });
+}
+// 8 — 1984 Macintosh in a blue spotlight, then the fall of 1985
+function s8(g, lt) {
+  const off = smooth(3.6, 3.75, lt) * (lt < 4.1 ? (Math.sin(lt * 90) > 0 ? 1 : .5) : 1);
+  spotGrid(g, lt, 1 - off * .85, 'cool');
+  // flares
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (const [x, y, r] of [[200, 900, 26], [880, 1180, 18], [760, 520, 12]]) {
+    const fl = g.createRadialGradient(x, y, 0, x, y, r * 4); fl.addColorStop(0, `rgba(200,230,255,${.6 * (1 - off)})`); fl.addColorStop(1, 'rgba(200,230,255,0)');
+    g.fillStyle = fl; g.fillRect(x - r * 4, y - r * 4, r * 8, r * 8);
+  }
+  g.restore();
+  const a = swing(lt, .1, .9, -1), fall = clamp((lt - 4.0) / 1.0);
+  framed(g, 'mac1984', 540 + a.dx + fall * 120, 840 + fall * fall * 1500, 380, 560, { v: 'warm', rot: a.rot + .02 + fall * .9, s: a.s, a: a.a, style: 'wood', fy: .4, dim: off * .4 });
+  counter(g, 1980, 1984, 540, 330, lt, .3, .7, { size: 150, uw: 300, a: 1 - off });
+  words(g, 'ماكنتوش… الحاسوب الذي «قال مرحباً»', 540, 1340, lt, 1.2, .12, { size: 50, w: 800, c: '#eaf4ff', sh: 'rgba(0,0,0,.6)' }, 3.6);
+  const k = easeBack(clamp((lt - 4.2) / .45));
+  if (lt > 4.2) txt(g, 'طُرد', 540, 900, { size: 230, font: RUQ, w: 700, c: '#e1242a', sc: lerp(.5, 1, k), a: smooth(4.2, 4.35, lt), sh: 'rgba(0,0,0,.8)', blur: 30 });
+  words(g, 'من الشركة التي أسّسها', 540, 1070, lt, 4.8, .14, { size: 58, w: 800, c: '#ffffff', sh: 'rgba(0,0,0,.8)' });
+  txt(g, '١٩٨٥', 540, 1180, { size: 60, font: NUM, w: 600, c: '#9fb3c8', a: life(lt, 5.4, null), ltr: true });
+}
+// 9 — "but he didn't stop": NeXT, Pixar, the return
+function s9(g, lt) {
+  spotGrid(g, lt, smooth(0, .6, lt), 'warm');
+  const w3 = ['لكنه', 'لم', 'يتوقف'];
+  w3.forEach((w, i) => { const t0 = .3 + i * .45; txt(g, w, 540, 820, { size: 78, font: AMI, it: true, w: 700, c: '#fff3e6', a: life(lt, t0, t0 + .38, .12, .08), sh: 'rgba(0,0,0,.5)' }); });
+  const a = swing(lt, 1.8, .9, 1);
+  if (lt > 1.8) framed(g, 'pixar', 540 + a.dx, 780, 720, 532, { v: 'warm', rot: a.rot - .03, s: a.s, a: a.a * (1 - smooth(4.4, 4.8, lt)), style: 'gold', fy: .5 });
+  txt(g, 'NeXT', 280, 460, { size: 64, font: LAT, it: true, w: 700, c: '#ffffff', ltr: true, a: life(lt, 2.4, 4.4), sh: 'rgba(0,0,0,.7)' });
+  txt(g, 'Pixar', 820, 1140, { size: 64, font: LAT, it: true, w: 700, c: '#ffffff', ltr: true, a: life(lt, 2.8, 4.4), sh: 'rgba(0,0,0,.7)' });
+  words(g, 'أسّس NeXT واشترى Pixar… ثم جاء Toy Story', 540, 1320, lt, 3.0, .1, { size: 44, w: 800, c: '#fff3e6', sh: 'rgba(0,0,0,.6)' }, 4.4);
+  const k = easeOut(clamp((lt - 4.7) / .5));
+  counter(g, 1990, 1997, 540, 860, lt, 4.7, .7, { size: 220, uw: 440 });
+  if (lt > 5.1) txt(g, 'عاد إلى Apple', 540, 1060, { size: 96, font: LAL, c: '#fff3e6', a: smooth(5.1, 5.4, lt), sc: lerp(.85, 1, k), sh: 'rgba(0,0,0,.6)' });
+}
+// 10 — white gallery wall: the products that followed
+function s10(g, lt) {
+  g.save(); const pan = ease(clamp(lt / 6)); g.translate(lerp(40, -40, pan), 0); whiteWall(g);
+  const F = [['macworld2005', 300, 520, 360, 470, .5, '2005'], ['iphone2007', 780, 560, 400, 300, .5, 'iPhone · 2007'], ['macbookair2008', 300, 1180, 340, 470, .3, 'MacBook Air · 2008'], ['ipad2010', 780, 1200, 360, 450, .3, 'iPad · 2010']];
+  F.forEach(([n, x, y, w, h, fy, lab], i) => {
+    const a = swing(lt, .2 + i * .45, .8, i % 2 ? -1 : 1);
+    if (lt > .2 + i * .45) framed(g, n, x + a.dx, y, w, h, { v: 'raw', rot: a.rot + (i % 2 ? .03 : -.03), s: a.s, a: a.a, style: 'gold', fy, sb: 36, sy: 22, shadow: 'rgba(40,30,20,.45)' });
+    txt(g, lab, x, y + h / 2 + 90, { size: 38, font: LAT, it: true, w: 700, c: '#2b2420', ltr: true, a: life(lt, 1.0 + i * .45, null) });
+  });
+  g.restore();
+  beat(g, 'عاد… وأعاد اختراع كل شيء', 540, 1680, lt, 2.6, { size: 70, font: LAL, c: '#201a16' });
+  words(g, 'iPod iPhone iPad', 540, 1780, lt, 3.4, .25, { size: 46, font: LAT, it: true, w: 700, c: '#c8191f', ltr: true });
+}
+// 11 — Stanford, 2005: the line he left behind
+function s11(g, lt) {
+  g.save(); cam(g, lt, 5, 1, 1.08); darkPaper(g, lt); g.restore();
+  const S = [['ابقَ', 760, 640, .4], ['جائعاً', 440, 800, .8], ['ابقَ', 720, 1060, 1.4], ['أحمق', 400, 1220, 1.8]];
+  S.forEach(([w, x, y, t0]) => txt(g, w, x, y, { size: 96, font: SANS, w: 800, c: '#f2efe9', a: life(lt, t0, 3.0, .25, .3), sc: lerp(.8, 1, easeBack(clamp((lt - t0) / .4))) }));
+  txt(g, 'جامعة ستانفورد · ٢٠٠٥', 540, 1440, { size: 40, font: AMI, it: true, w: 400, c: '#b9b2a8', a: life(lt, 2.2, 3.0) });
+  const k = easeBack(clamp((lt - 3.2) / .5));
+  if (lt > 3.2) {
+    txt(g, 'STAY HUNGRY', 540, 880, { size: 130, font: LAL, c: '#f6f3ee', ltr: true, rot: -.16, sc: lerp(1.6, 1, k), a: smooth(3.2, 3.4, lt), sh: 'rgba(0,0,0,.8)', blur: 30 });
+    txt(g, 'STAY FOOLISH', 560, 1060, { size: 130, font: LAL, c: '#e1242a', ltr: true, rot: -.16, sc: lerp(1.6, 1, easeBack(clamp((lt - 3.6) / .5))), a: smooth(3.6, 3.8, lt), sh: 'rgba(0,0,0,.8)', blur: 30 });
+  }
+}
+// 12 — end card under the lamp
+function s12(g, lt) {
+  g.save(); cam(g, lt, 8, 1.0, 1.05, W / 2, 800); wall(g, smooth(0, .8, lt)); g.restore();
+  const a = swing(lt, .3, 1.0, -1);
+  framed(g, 'headshot2010', 540 + a.dx, 760, 520, 600, { v: 'warm', rot: a.rot + .015, s: a.s, a: a.a, style: 'gold', fy: .25, z: 1.05, fx: .45 });
+  tornLabel(g, 'ستيف جوبز', 540, 1140, clamp((lt - 1.4) / .45), { size: 58, seed: 31 });
+  txt(g, '1955 – 2011', 540, 1270, { size: 66, font: NUM, w: 600, c: '#f4ead8', ltr: true, skew: -.16, a: life(lt, 2.0, null), sh: 'rgba(0,0,0,.6)' });
+  words(g, 'من مرآبٍ صغير…', 540, 1440, lt, 2.8, .16, { size: 74, font: LAL, w: 400, c: '#f1e3cc', sh: 'rgba(0,0,0,.6)' });
+  if (lt > 3.6) txt(g, 'غيّر العالم', 540, 1590, { size: 150, font: RUQ, w: 700, c: '#e1242a', sc: lerp(.6, 1, easeBack(clamp((lt - 3.6) / .5))), a: smooth(3.6, 3.8, lt), sh: 'rgba(0,0,0,.7)', blur: 26 });
+  txt(g, 'الصور: ويكيميديا كومنز · CC BY / CC BY-SA / ملكية عامة', 540, 1840, { size: 24, w: 500, c: 'rgba(240,225,200,.55)', a: life(lt, 4.6, null) });
+}
+
+/* =====================================================================
+   timeline + compositing
+   ===================================================================== */
+const SC = [
+  { start: 0, fn: s1 }, { start: 6.5, fn: s2 }, { start: 12.5, fn: s3 }, { start: 19.5, fn: s4 },
+  { start: 26.5, fn: s5 }, { start: 34.5, fn: s6 }, { start: 40.5, fn: s7 }, { start: 46.5, fn: s8 },
+  { start: 53, fn: s9 }, { start: 60, fn: s10 }, { start: 66, fn: s11 }, { start: 71, fn: s12 },
+];
+const FADE = [0, .5, .6, .6, .35, .5, .5, .5, .6, .5, .5, .6];
+const TOTAL = 78;
+const sceneAt = T => { for (let i = SC.length - 1; i >= 0; i--) if (T >= SC[i].start) return i; return 0; };
+function drawScene(g, i, t) { g.save(); reset(g); SC[i].fn(g, t); g.restore(); reset(g); }
+function renderFrame(T) {
+  const i = sceneAt(T), lt = T - SC[i].start, f = FADE[i];
+  if (i > 0 && f > 0 && lt < f) {
+    drawScene(ctx, i - 1, T - SC[i - 1].start);
+    drawScene(bctx, i, lt);
+    ctx.globalAlpha = ease(lt / f); ctx.drawImage(BUF, 0, 0); ctx.globalAlpha = 1;
+  } else drawScene(ctx, i, lt);
+  vignette(ctx, i === 9 ? .3 : .62);
+  grain(ctx, T, i === 9 ? .1 : .14);
+  ctx.globalAlpha = 1 - smooth(TOTAL - 1.2, TOTAL, T); if (ctx.globalAlpha < 1) { ctx.globalAlpha = smooth(TOTAL - 1.2, TOTAL, T); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); } ctx.globalAlpha = 1;
+}
+// sound cues the soundtrack generator reads (seconds)
+const S0 = i => SC[i].start;
+window.__CUES = {
+  scenes: SC.map(s => s.start), total: TOTAL,
+  whoosh: [S0(1), S0(2) + .1, S0(3) + .2, S0(4), S0(5) + .1, S0(6), S0(7) + .1, S0(8) + 1.8, S0(9) + .2, S0(9) + .65, S0(9) + 1.1, S0(9) + 1.55, S0(10), S0(11) + .3],
+  thud: [S0(1) + 2.2, S0(2) + .9, S0(2) + 3.6, S0(3) + 1.0, S0(4) + .8, S0(5) + .9, S0(6) + .8, S0(7) + .9, S0(8) + 2.6, S0(9) + .9, S0(9) + 1.35, S0(9) + 1.8, S0(9) + 2.25, S0(10) + 3.2, S0(10) + 3.6, S0(11) + 1.2, S0(11) + 3.6],
+  ticks: [[S0(1) + .5, 1.3], [S0(2) + .6, .8], [S0(2) + 3.4, .8], [S0(4) + 5.2, 1.4], [S0(5) + 3.8, 1.2], [S0(6) + .4, .8], [S0(7) + .3, .7], [S0(8) + 4.7, .7]],
+  hit: [1.4, S0(4) + .8, S0(7) + 4.2, S0(11) + 3.6],
+  flicker: [S0(1), S0(7) + 3.6], dark: [S0(7) + 3.6, S0(8)],
+};
+
+/* =====================================================================
+   PLAYER
+   ===================================================================== */
+const stage = document.getElementById('stage'), controls = document.getElementById('controls');
+const pp = document.getElementById('pp'), rp = document.getElementById('rp'), snd = document.getElementById('snd'), bar = document.getElementById('bar'), fill = document.getElementById('fill'), timeEl = document.getElementById('time');
+const music = document.getElementById('music');
+function layout() { const aw = innerWidth - 32, ah = innerHeight - 24 - 52, w = Math.max(160, Math.min(aw, ah * 9 / 16)); stage.style.width = w + 'px'; stage.style.height = (w * 16 / 9) + 'px'; controls.style.width = Math.max(w, Math.min(aw, 340)) + 'px'; }
+addEventListener('resize', layout); layout();
+const q = new URLSearchParams(location.search);
+const CAPTURE = q.has('capture');
+let T = 0, playing = false, ended = false, last = 0, ready = false, sound = false;
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function setPlaying(p) { playing = p; pp.textContent = p ? '❚❚' : '▶'; pp.setAttribute('aria-label', p ? 'إيقاف مؤقت' : 'تشغيل'); syncAudio(true); }
+function syncAudio(force) {
+  if (!sound || !playing || ended) { if (!music.paused) music.pause(); return; }
+  if (music.paused) { music.currentTime = T; music.play().catch(() => {}); }
+  else if (force || Math.abs(music.currentTime - T) > .25) music.currentTime = T;
+}
+function tick(now) {
+  const dt = Math.min(.1, (now - last) / 1000 || 0); last = now;
+  if (ready && !CAPTURE) {
+    if (playing && !ended) { T += dt; if (T >= TOTAL) { T = TOTAL; ended = true; setPlaying(false); } }
+    renderFrame(Math.min(T, TOTAL - .001));
+    syncAudio(false);
+    fill.style.width = (Math.min(T, TOTAL) / TOTAL * 100) + '%'; timeEl.textContent = `${fmt(Math.min(T, TOTAL))} / ${fmt(TOTAL)}`;
+  }
+  requestAnimationFrame(tick);
+}
+function replay() { T = 0; ended = false; setPlaying(true); }
+pp.addEventListener('click', () => { if (ended) { replay(); return; } setPlaying(!playing); });
+rp.addEventListener('click', replay);
+snd.addEventListener('click', () => { sound = !sound; snd.setAttribute('aria-pressed', String(sound)); syncAudio(true); });
+addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); pp.click(); } if (e.key === 'm' || e.key === 'M') snd.click(); });
+function seek(x) { const r = bar.getBoundingClientRect(); T = clamp((x - r.left) / r.width) * TOTAL; ended = T >= TOTAL; syncAudio(true); }
+bar.addEventListener('pointerdown', e => { bar.setPointerCapture(e.pointerId); seek(e.clientX); });
+bar.addEventListener('pointermove', e => { if (e.buttons) seek(e.clientX); });
+window.__frame = (t, type = 'image/jpeg') => { renderFrame(t); return art.toDataURL(type, .92); };
+window.__TOTAL = TOTAL;
+
+buildTextures();
+const fontLoads = [`700 80px "Aref Ruqaa"`, `400 80px "Lalezar"`, `italic 400 40px "Amiri"`, `italic 700 40px "Amiri"`, `500 40px "Tajawal"`, `800 40px "Tajawal"`, `600 40px "Oswald"`, `italic 700 40px "Playfair Display"`].map(f => document.fonts.load(f, 'ستيف جوبز Apple 1976'));
+Promise.all([
+  Promise.race([Promise.all(fontLoads).catch(() => {}), new Promise(r => setTimeout(r, 4000))]),
+  Promise.all(NAMES.map(loadImg)),
+]).then(() => {
+  ready = true; document.getElementById('loading').remove(); window.__ready = true;
+  if (q.has('t')) T = +q.get('t');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!CAPTURE) { if (still && !q.has('t')) T = 76; setPlaying(!still); }
+});
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
