@@ -123,7 +123,7 @@ Open `torn-paper-city/index.html` to play it. Space plays or pauses, R restarts,
 A 52-second vertical (9:16) stop-motion follow-up to *Torn Paper City*. It uses the same six lines and torn sheets, but this time there is a man at its centre, and the world around him slowly comes unstuck.
 
 **The man** is cut from a real photo supplied by the author (`img/face.png`, `img/head.png`, `img/eye.jpg`), with a white scissor border. He wears aviator sunglasses and keeps a **poker face** the whole way through. Light glints across his lenses instead of blinks.
-- In the walking shots his photo head sits on a jointed paper puppet: a maroon cardigan over a teal sweater, a white shirt and tie, thighs, shins, shoes, upper arms, forearms and hands, all joined with brass split pins.
+- In the walking shots his photo head sits on a big, flat, boxy paper body cut like mid-century fashion collages: a square-shouldered maroon knit jacket over a teal sweater, a white shirt and tie, stiff straight sleeves, long pinstripe trouser legs that scissor as he walks, hands and polished shoes. His ghosts wear patchwork, herringbone and check.
 - His walk is keyed pose by pose, twelve poses a second, like real stop-motion.
 
 **The trip** builds scene by scene and then fades away:

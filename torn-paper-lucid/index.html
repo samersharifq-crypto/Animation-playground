@@ -128,6 +128,23 @@
   .w.lit { background: #f0b938; box-shadow: 0 0 14px rgba(255,200,80,.6); }
   .w.dim { background: #e9dcb8; }
 
+  /* printed fabrics for the paper clothes */
+  .fab-knit { background-color: #6e2a35; background-image: repeating-linear-gradient(60deg, rgba(255,255,255,.07) 0 3px, transparent 3px 8px), repeating-linear-gradient(-60deg, rgba(0,0,0,.22) 0 3px, transparent 3px 8px), var(--grain); }
+  .fab-teal { background-color: #2f6f6a; background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 3px, transparent 3px 9px), repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 2px, transparent 2px 7px), var(--grain); }
+  .fab-pin { background-color: #22252b; background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.18) 0 1.5px, transparent 1.5px 16px), var(--grain); }
+  .fab-herring { background-color: #8d8a84; background-image: repeating-linear-gradient(55deg, #2c2a27 0 3px, transparent 3px 9px), repeating-linear-gradient(-55deg, rgba(255,255,255,.35) 0 2px, transparent 2px 9px), var(--grain); background-size: 18px 18px, 18px 18px, auto; }
+  .fab-check { background-color: #a9b3ad; background-image: repeating-linear-gradient(0deg, rgba(20,30,30,.55) 0 4px, transparent 4px 26px), repeating-linear-gradient(90deg, rgba(20,30,30,.45) 0 4px, transparent 4px 26px), repeating-linear-gradient(45deg, rgba(0,0,0,.18) 0 2px, transparent 2px 6px), var(--grain); }
+  .fab-stripe { background-color: #2c3e2a; background-image: repeating-linear-gradient(0deg, #b6b13a 0 5px, transparent 5px 12px), var(--grain); }
+  .fab-dots { background-color: #efe6d4; background-image: radial-gradient(circle, #1d1a17 0 4px, transparent 4.5px), var(--grain); background-size: 18px 18px, auto; }
+  .fab-diamond { background-color: #e9e4da; background-image: repeating-linear-gradient(45deg, #1d1a17 0 3px, transparent 3px 14px), repeating-linear-gradient(-45deg, #1d1a17 0 3px, transparent 3px 14px), var(--grain); }
+  .fab-salmon { background-color: #ec8b75; background-image: var(--grain); }
+  .fab-mustard { background-color: #d8a536; background-image: repeating-linear-gradient(90deg, rgba(0,0,0,.15) 0 2px, transparent 2px 6px), var(--grain); }
+  .fab-navy { background-color: #1f3b4d; background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 1px, transparent 1px 4px), var(--grain); }
+  .fab-wine { background-color: #5b1f2c; background-image: repeating-linear-gradient(30deg, rgba(240,120,140,.35) 0 4px, transparent 4px 13px), var(--grain); }
+  .fab-patch { background-color: #3a4a7a;
+    background-image: linear-gradient(90deg, transparent 0 34%, #b6b13a 34% 52%, transparent 52% 70%, #c8553d 70% 100%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 2px, transparent 2px 12px), var(--grain);
+    background-size: 100% 46%, auto, auto; background-repeat: repeat-y, repeat, repeat; }
   #grain {
     position: absolute; inset: -60px;
     background-image: var(--grain); opacity: .3;
@@ -392,40 +409,66 @@ function portraitHTML({ x, y, s = 1, cls = "", mode = "h", n = 8, origin = "50% 
   return div(`portrait ${cls}`, `${box(x, y, 600, 780)}transform-origin:${origin};transform:scale(${s});filter:drop-shadow(0 14px 12px rgba(0,0,0,.35))`, strips, `data-s="${s}"`);
 }
 
-/* The jointed puppet: thighs, shins, shoes, upper arms, forearms, hands, split pins */
-function walkerHTML({ x, foot, s = 1, cls = "", coat = "#6e2a35", style = "" }) {
-  const W = 240, H = 640;
-  const pin = (px, py) => `<i class="a round" style="${box(px - 4, py - 4, 8, 8)}background:#c9a24a;box-shadow:0 1px 1px rgba(0,0,0,.5)"></i>`;
-  const leg = (side, col, shoe) => div(`thigh${side}`, `${box(102, 318, 36, 160)}transform-origin:50% 6%`,
-    `<div class="a" style="inset:0;background:${col};border-radius:16px 16px 10px 10px;clip-path:${ragged(4, 1)}"></div>` +
-    div(`shin${side}`, `${box(2, 146, 32, 160)}transform-origin:50% 5%`,
-      `<div class="a" style="inset:0;background:${col};border-radius:12px;clip-path:${ragged(4, 1)}"></div>` +
-      div(`foot${side}`, `${box(-6, 148, 66, 26)}transform-origin:18% 30%`,
-        `<div class="a" style="inset:0;background:${shoe};border-radius:8px 18px 6px 4px"></div><div class="a" style="${box(0, 20, 66, 6)}background:#0d0b0a"></div>`) + pin(16, 6)) + pin(18, 10));
-  const arm = (side, col, skin) => div(`uarm${side}`, `${box(108, 158, 26, 128)}transform-origin:50% 6%`,
-    `<div class="a" style="inset:0;background:${col};border-radius:13px;clip-path:${ragged(4, 1)}"></div>` +
-    div(`farm${side}`, `${box(2, 116, 22, 112)}transform-origin:50% 5%`,
-      `<div class="a" style="inset:0;background:${col};border-radius:11px"></div><div class="a" style="${box(-1, 92, 24, 10)}background:#efe9dc"></div>` +
-      div("", `${box(-3, 100, 28, 38)}background:${skin};border-radius:40% 40% 50% 50%;border:3px solid #fbf8f1`) + pin(11, 6)) + pin(13, 8));
+/* The puppet, cut like the reference collages: a small photo head on a big flat paper body —
+   a boxy square-shouldered jacket, stiff straight sleeves, long trouser legs that scissor,
+   photo-style hands and polished shoes, all in printed fabric. Joints are hidden split pins. */
+const OUTFITS = {
+  hero:    { jacket: "fab-knit", panel: "fab-teal", sleeve: "fab-knit", trousers: "fab-pin", tie: "#6e2a35" },
+  patch:   { jacket: "fab-patch", panel: "fab-dots", sleeve: "fab-check", trousers: "fab-diamond", tie: "#c8553d" },
+  herring: { jacket: "fab-herring", panel: "fab-salmon", sleeve: "fab-herring", trousers: "fab-navy", tie: "#1d1a17" },
+  check:   { jacket: "fab-check", panel: "fab-mustard", sleeve: "fab-stripe", trousers: "fab-wine", tie: "#2b4a5c" }
+};
+function handSVG(flip = false) {
+  return `<svg width="58" height="92" viewBox="0 0 58 92" style="position:absolute;left:0;top:0;overflow:visible;${flip ? "transform:scaleX(-1)" : ""}">
+    <path d="M12 0 H46 L47 28 C53 38 56 52 52 68 C50 79 45 86 39 84 L37 70 L35 87 C33 92 26 92 25 86 L24 70 L20 84 C18 89 11 88 11 82 L13 62 C8 58 3 50 5 41 C6 34 10 30 12 28 Z" fill="#fbf8f1" stroke="#fbf8f1" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M12 0 H46 L47 28 C53 38 56 52 52 68 C50 79 45 86 39 84 L37 70 L35 87 C33 92 26 92 25 86 L24 70 L20 84 C18 89 11 88 11 82 L13 62 C8 58 3 50 5 41 C6 34 10 30 12 28 Z" fill="#8a5a3c"/>
+    <path d="M5 41 C2 50 4 60 12 64" fill="none" stroke="#5e3a24" stroke-width="2"/>
+    <path d="M24 70 L24 60 M36 70 L36 58" stroke="#5e3a24" stroke-width="1.6" opacity=".7"/>
+    <rect x="12" y="0" width="34" height="40" fill="#000" opacity=".12"/></svg>`;
+}
+function shoeSVG() {
+  return `<svg width="92" height="36" viewBox="0 0 92 36" style="position:absolute;left:0;top:0;overflow:visible">
+    <path d="M4 31 C2 19 8 9 22 7 L48 5 C63 7 80 15 87 25 C89 31 85 33 79 33 Z" fill="#fbf8f1" stroke="#fbf8f1" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M4 31 C2 19 8 9 22 7 L48 5 C63 7 80 15 87 25 C89 31 85 33 79 33 Z" fill="#141111"/>
+    <path d="M3 30 L86 30 L84 35 L5 35 Z" fill="#050404"/>
+    <ellipse cx="62" cy="15" rx="16" ry="4" fill="#fff" opacity=".35"/>
+    <path d="M30 8 L38 16 M36 7 L44 15 M42 7 L49 14" stroke="#4a4240" stroke-width="1.6"/></svg>`;
+}
+function walkerHTML({ x, foot, s = 1, cls = "", outfit = "hero", style = "" }) {
+  const W = 300, H = 920, o = OUTFITS[outfit];
+  const leg = (side, cx) => div(`thigh${side}`, `${box(cx - 37, 462, 74, 226)}transform-origin:50% 4%`,
+    div(`${o.trousers}`, `inset:0;clip-path:polygon(0 0,100% 0,98% 100%,2% 100%)`) +
+    div(`shin${side}`, `${box(1, 214, 72, 214)}transform-origin:50% 3%`,
+      div(`${o.trousers}`, `inset:0;clip-path:polygon(1% 0,99% 0,96% 100%,4% 100%)`) +
+      div("", `${box(4, 196, 64, 18)}background:#000;opacity:.25`) +
+      div(`foot${side}`, `${box(-10, 202, 92, 36)}transform-origin:30% 40%`, shoeSVG())));
+  const arm = (side, cx) => div("", `${box(cx - 28, 162, 56, 176)}transform-origin:50% 4%;transform:rotate(${side === "B" ? 10 : -10}deg);filter:drop-shadow(${side === "B" ? 4 : -4}px 4px 3px rgba(0,0,0,.4))`,
+    div(`uarm${side}`, `${box(0, 0, 56, 176)}transform-origin:50% 6%`,
+    div(`${o.sleeve}`, `inset:0;clip-path:polygon(0 0,100% 0,100% 100%,0 100%)`) +
+    div(`farm${side}`, `${box(1, 164, 54, 164)}transform-origin:50% 4%`,
+      div("", `${box(14, 150, 58, 92)}transform:${side === "F" ? "scaleX(-1)" : "none"};transform-origin:30% 0`, handSVG()) +
+      div(`${o.sleeve}`, `inset:0;clip-path:polygon(0 0,100% 0,96% 100%,4% 100%)`) +
+      div("", `${box(4, 148, 46, 10)}background:#efe9dc`))));
   return div(`walker ${cls}`, `${box(x - W / 2, foot - H, W, H)}transform-origin:50% 100%;transform:scale(${s});${style}`,
     div("wbody", "inset:0",
-      arm("B", "#1c2a33", "#a87b58") + leg("B", "#1d1c22", "#120f0d") +
-      div("tx-news", `${box(76, 146, 92, 230)}clip-path:polygon(22% 0,80% 0,92% 60%,100% 100%,0 100%,10% 60%)`, `<div class="cols" style="font-size:10px">${filler(260)}</div>`) +
-      div("", `${box(76, 146, 92, 230)}background:${coat};opacity:.86;clip-path:polygon(22% 0,80% 0,92% 60%,100% 100%,0 100%,10% 60%)`) +
-      div("", `${box(112, 146, 30, 60)}background:#efe9dc;clip-path:polygon(0 0,100% 0,50% 100%)`) +
-      div("", `${box(108, 120, 28, 34)}background:#b4835e`) +
-      div("", `${box(84, 360, 76, 18)}background:#1d1a17;opacity:.35`) +
-      leg("F", "#2b2a33", "#1a1412") +
-      div("", `${box(98, 150, 50, 120)}background-color:#2f6f6a;background-image:var(--grain);clip-path:polygon(0 0,100% 0,80% 100%,20% 100%)`) +
-      div("", `${box(114, 146, 18, 64)}background:#efe9dc;clip-path:polygon(0 0,100% 0,50% 100%)`) +
-      div("", `${box(119, 160, 8, 46)}background:#6e2a35`) +
-      `<img src="img/head.png" alt="" style="position:absolute;left:68px;top:-34px;width:108px;height:163px;filter:drop-shadow(0 4px 3px rgba(0,0,0,.35))">` +
-      arm("F", coat, "#c99a72")), `data-s="${s}"`);
+      arm("B", 30) + leg("B", 118) + leg("F", 182) +
+      // the boxy jacket: square shoulders, a slight flare, one rounded shoulder like the reference
+      div("jacket", `${box(36, 148, 228, 350)}filter:drop-shadow(0 4px 4px rgba(0,0,0,.3))`,
+        div(o.jacket, `inset:0;clip-path:polygon(0 4%,8% 0,92% 0,100% 6%,103% 100%,-3% 100%);border-radius:30px 46px 0 0`) +
+        div(o.panel, `${box(76, 0, 76, 230)}clip-path:polygon(0 0,100% 0,50% 100%)`) +
+        div("", `${box(94, 0, 40, 74)}background:#f1ece2;clip-path:polygon(0 0,100% 0,50% 100%)`) +
+        div("", `${box(107, 14, 14, 110)}background:${o.tie};clip-path:polygon(15% 0,85% 0,100% 85%,50% 100%,0 85%)`) +
+        div("", `${box(60, 0, 2, 350)}background:rgba(0,0,0,.25)`) + div("", `${box(166, 0, 2, 350)}background:rgba(0,0,0,.25)`) +
+        div("", `${box(150, 250, 10, 10)}background:#1d1a17;border-radius:50%`) + div("", `${box(150, 300, 10, 10)}background:#1d1a17;border-radius:50%`)) +
+      arm("F", 270) +
+      `<img src="img/head.png" alt="" style="position:absolute;left:105px;top:38px;width:90px;height:136px;filter:drop-shadow(0 4px 3px rgba(0,0,0,.35))">`),
+    `data-s="${s}"`);
 }
+
 /* stop-motion walk cycle keyed pose by pose (12 poses a second) */
 function walkKeys(keys, pre, s, e, period = 1, lag = 0) {
-  const leg = p => -24 * Math.cos(2 * Math.PI * p);
-  const knee = p => 44 * Math.max(0, Math.sin(2 * Math.PI * (p - .5)));
+  const leg = p => -19 * Math.cos(2 * Math.PI * p);
+  const knee = p => 24 * Math.max(0, Math.sin(2 * Math.PI * (p - .5)));
   const P = (p, o) => ((p + o) % 1 + 1) % 1;
   keys(`${pre} .thighF`, "rotation", p => leg(P(p, 0)), s, e, period, lag);
   keys(`${pre} .shinF`, "rotation", p => knee(P(p, 0)), s, e, period, lag);
@@ -433,9 +476,9 @@ function walkKeys(keys, pre, s, e, period = 1, lag = 0) {
   keys(`${pre} .thighB`, "rotation", p => leg(P(p, .5)), s, e, period, lag);
   keys(`${pre} .shinB`, "rotation", p => knee(P(p, .5)), s, e, period, lag);
   keys(`${pre} .footB`, "rotation", p => -(leg(P(p, .5)) + knee(P(p, .5))) * .7, s, e, period, lag);
-  keys(`${pre} .uarmF`, "rotation", p => 20 * Math.cos(2 * Math.PI * p), s, e, period, lag);
+  keys(`${pre} .uarmF`, "rotation", p => 14 * Math.cos(2 * Math.PI * p), s, e, period, lag);
   keys(`${pre} .farmF`, "rotation", p => -8 - 18 * Math.max(0, -Math.cos(2 * Math.PI * p)), s, e, period, lag);
-  keys(`${pre} .uarmB`, "rotation", p => -20 * Math.cos(2 * Math.PI * p), s, e, period, lag);
+  keys(`${pre} .uarmB`, "rotation", p => -14 * Math.cos(2 * Math.PI * p), s, e, period, lag);
   keys(`${pre} .farmB`, "rotation", p => -8 - 18 * Math.max(0, Math.cos(2 * Math.PI * p)), s, e, period, lag);
   keys(`${pre} .wbody`, "y", p => -7 * Math.pow(Math.sin(2 * Math.PI * p), 2), s, e, period / 2, lag * 2);
 }
@@ -561,15 +604,15 @@ const SCENES = [
       for (let k = 0; k < 4; k++) row += `<div class="a" style="left:${k * P}px;top:0;width:${P}px;height:${B}px">${unit}</div>`;
       let dashes = "";
       for (let k = 0; k < 16; k++) dashes += div("", `${box(k * 200, 230, 110, 14)}background:#efe6d4;clip-path:${ragged(3, 10)}`);
-      const ghosts = [["#c8553d", 200], ["#3fb6a8", 120], ["#e3b448", 300]].map(([c, hue], k) =>
-        walkerHTML({ x: 470 - (k + 1) * 85, foot: 1660, s: 1.0, cls: `ghost g${k}`, coat: c,
+      const ghosts = [["patch", 200], ["herring", 120], ["check", 300]].map(([c, hue], k) =>
+        walkerHTML({ x: 470 - (k + 1) * 95, foot: 1660, s: .76, cls: `ghost g${k}`, outfit: c,
           style: `opacity:0;filter:hue-rotate(${hue}deg) saturate(1.6);mix-blend-mode:screen` })).reverse().join("");
       return sky + div("moon round grainy", `${box(770, 590, 140, 140)}background-color:#e3b448;box-shadow:0 0 50px rgba(227,180,72,.35)`) + stars +
         div("street", `${box(0, 830, P * 4, 1090)}`,
           `<div class="a" style="${box(0, 0, P * 4, B)}">${row}</div>` +
           div("", `${box(0, B - 10, P * 4, 120)}background:#77736c;clip-path:${tornTop(10, 1.5, 120)}`, `<div class="a grainy" style="inset:0"></div>`) +
           div("", `${box(0, B + 100, P * 4, 400)}background:#191817`, dashes)) +
-        ghosts + walkerHTML({ x: 470, foot: 1660, s: 1.0, cls: "hero" });
+        ghosts + walkerHTML({ x: 470, foot: 1660, s: .76, cls: "hero" });
     },
     anim(on, s, L, cue, swing, keys) {
       const P = 830, e = s + L + .7;
@@ -661,7 +704,7 @@ const SCENES = [
             div("spiral round", `inset:0;background:repeating-conic-gradient(#f0b938 0 12deg, #c8553d 12deg 24deg)`) +
             div("round", `inset:30px;background:repeating-radial-gradient(circle, transparent 0 14px, rgba(31,59,77,.5) 14px 22px)`) +
             div("round grainy", `inset:130px;background-color:#f0b938`)) +
-          land + road + walkerHTML({ x: 370, foot: 1010, s: .32, cls: "walker2" })) +
+          land + road + walkerHTML({ x: 370, foot: 1010, s: .24, cls: "walker2" })) +
         div("shutL shadow", `${box(vx, vy, vw / 2, vh)}transform-origin:0 50%;background-color:#2f6f73;background-image:${slats},var(--grain);border:8px solid #1f3b4d`) +
         div("shutR shadow", `${box(vx + vw / 2, vy, vw / 2, vh)}transform-origin:100% 50%;background-color:#2f6f73;background-image:${slats},var(--grain);border:8px solid #1f3b4d`) +
         div("", `${box(vx - 40, vy + vh + 20, vw + 80, 40)}background:#fbf8f1;clip-path:${ragged(1, 10)}`);
@@ -679,7 +722,7 @@ const SCENES = [
       on(".road", "from", { sy: 0, duration: 1.0, ease: "power2.out" }, s + 2.3);
       cue("unroll", s + 2.3);
       on(".walker2", "fromTo", { from: { opacity: 0 }, opacity: 1, duration: .1 }, s + 3.0);
-      on(".walker2", "to", { y: -380, x: 20, scale: .14, duration: L - 2.6, ease: "none" }, s + 3.0);
+      on(".walker2", "to", { y: -380, x: 20, scale: .1, duration: L - 2.6, ease: "none" }, s + 3.0);
       walkKeys(keys, ".walker2", s + 3.0, s + L + 1, .8);
       on(".art", "fromTo", { from: { scale: 1 }, scale: 1.06, duration: L, ease: "none" }, s);
     } },
@@ -698,7 +741,7 @@ const SCENES = [
         busHTML("t0", 1100, 860) + birdHTML("t1", 1100, 720, 1.2) + treeHTML("t2", 1100, 1080) +
         taxiHTML("t3", 1100, 1300) + umbrellaHTML("t4", 1100, 1500) + tramHTML("t5", 1100, 960) +
         birdHTML("t6", 1100, 820, .8) + taxiHTML("t7", 1100, 1560, .85, "#e3b448") +
-        walkerHTML({ x: 1160, foot: 1890, s: .62, cls: "t8 thing" }) +
+        walkerHTML({ x: 1160, foot: 1890, s: .46, cls: "t8 thing", outfit: "patch" }) +
         div("flash", "inset:0;background:#fff;mix-blend-mode:difference;opacity:0");
     },
     anim(on, s, L, cue, swing, keys) {
