@@ -104,3 +104,16 @@ The generated soundtrack is also saved as `soundtrack.m4a` for the player. It ha
 - rips, stamps, boings and handcuffs on cue
 
 To render it again, run `node stranger-at-the-window/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
+
+## torn-paper-city/ — *Torn Paper City*
+
+A 45-second vertical (9:16) stop-motion paper collage in Arabic, built from the torn-paper text scene and the *Motion Study 07* reference. That reference shows a tower building itself from slices that slide in from alternating sides, over graph paper and a field, and then sliding apart again. It moves on twelves, with gate weave, flicker and boiling grain. Each line of the reflection is slapped on in torn word strips over its own collage scene, and the scene then tears open (vertically or horizontally) to show the next one underneath. The collage materials are newsprint, crosswords, stock pages, painted windows, bricks, blue tiles and layered torn landscapes.
+
+1. **The familiar**: a skyscraper builds itself slice by slice on graph paper, side buildings rise and the sun comes up behind a green field.
+2. **The same place**: a paper walker strides past the same night street, repeating over and over.
+3. **A small detail**: a giant halftone hand taps one window. It lights up, the rest of the facade dims, and a magnifier ring appears.
+4. **A new road**: the shutters open on a torn-paper landscape, and a winding road unrolls into it.
+5. **Things that pass**: a bus, a taxi, a tree, a tram, birds and an umbrella parade past a huge collage eye that follows them and blinks.
+6. **What we look for**: at night the city slides apart again, leaving only the one lit window in its ring.
+
+Open `torn-paper-city/index.html` to play it. Space plays or pauses, R restarts, M turns the sound on or off, H hides the controls, and the slider scrubs. Add `?clean` to the URL to hide the controls. `torn-paper-city/torn-paper-city.mp4` is the rendered 1080×1920 video with its generated soundtrack: plucked piano, a paper room tone, slaps, rips and swishes on cue. To render it again, run `node torn-paper-city/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
