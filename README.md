@@ -104,3 +104,63 @@ The generated soundtrack is also saved as `soundtrack.m4a` for the player. It ha
 - rips, stamps, boings and handcuffs on cue
 
 To render it again, run `node stranger-at-the-window/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
+
+## torn-paper-city/ — *Torn Paper City*
+
+A 45-second vertical (9:16) stop-motion paper collage in Arabic, built from the torn-paper text scene and the *Motion Study 07* reference. That reference shows a tower building itself from slices that slide in from alternating sides, over graph paper and a field, and then sliding apart again. It moves on twelves, with gate weave, flicker and boiling grain. Each line of the reflection is slapped on in torn word strips over its own collage scene, and the scene then tears open (vertically or horizontally) to show the next one underneath. The collage materials are newsprint, crosswords, stock pages, painted windows, bricks, blue tiles and layered torn landscapes.
+
+1. **The familiar**: a skyscraper builds itself slice by slice on graph paper, side buildings rise and the sun comes up behind a green field.
+2. **The same place**: a paper walker strides past the same night street, repeating over and over.
+3. **A small detail**: a giant halftone hand taps one window. It lights up, the rest of the facade dims, and a magnifier ring appears.
+4. **A new road**: the shutters open on a torn-paper landscape, and a winding road unrolls into it.
+5. **Things that pass**: a bus, a taxi, a tree, a tram, birds and an umbrella parade past a huge collage eye that follows them and blinks.
+6. **What we look for**: at night the city slides apart again, leaving only the one lit window in its ring.
+
+Open `torn-paper-city/index.html` to play it. Space plays or pauses, R restarts, M turns the sound on or off, H hides the controls, and the slider scrubs. Add `?clean` to the URL to hide the controls. `torn-paper-city/torn-paper-city.mp4` is the rendered 1080×1920 video with its generated soundtrack: plucked piano, a paper room tone, slaps, rips and swishes on cue. To render it again, run `node torn-paper-city/tools/record.js` (needs Playwright, ffmpeg, python3 + numpy).
+
+## torn-paper-lucid/ — *Torn Paper Lucid*
+
+A 53-second vertical (9:16) stop-motion journey that follows on from *Torn Paper City*. It has the same six lines, but this time there is a man at its centre, and the world around him slowly comes unstuck.
+
+**The man** is a drawn collage portrait. He has eyes with heavy lids, flat brows, a halftone-shaded nose, closed neutral lips, ears and hair, and he keeps a **poker face** the whole way through: he only blinks and stares. In the walking shots the same drawn head sits on a big, flat, boxy paper body, cut like mid-century fashion collages:
+- a square-shouldered maroon knit jacket over a teal sweater, a white shirt and tie
+- stiff straight sleeves, long pinstripe trouser legs that scissor as he walks, hands and polished shoes
+- his ghosts wear patchwork, herringbone and check
+
+His walk is keyed pose by pose, twelve poses a second, like real stop-motion.
+
+**The journey**: there are no cuts. Every scene change is a **tunnel-vision passage**:
+1. the scene rushes toward you and the edges of vision close in to a pinhole
+2. concentric paper rings and speed lines stream past in the dark, toward a light at the end
+3. the next scene comes up the tunnel to meet you and opens out
+
+Each passage pushes the trip a little higher for a moment, and its sound carries you through: a reversed swell pulls you in, air rushes past with a falling tone, and a low boom lands as you arrive.
+
+**The trip** builds scene by scene and then fades away:
+- outlines boil every other frame
+- the walls breathe and lean
+- the colours drift and cycle
+- a red/cyan split pulls the image apart
+- ghost copies of him trail behind
+- every window on a facade opens into the same staring eye
+- the sun turns into an op-art spiral
+- his face slides apart in slices like the tower, then splits down the middle
+- a tunnel of his own face pulses behind him
+- negative flashes
+
+**Foley**: you hear what you see.
+- His footsteps are leather heels on pavement with a little street echo. They land exactly when each foot touches the ground in the walk cycle.
+- His ghosts leave fainter, delayed echo steps, and the tiny figure far up the road has distant steps.
+- On the night street a taxi passes one way and honks, and the bus passes the other way. Engines rise and fall with a doppler pass and tyre hiss, panning across the speakers as they cross the screen.
+- In the parade, the bus has a diesel rumble and air brakes, the tram has rail clacks and its bell, the birds flap and chirp, the tree rustles and the umbrella flaps.
+- A city traffic bed runs under both street scenes.
+
+At the end it is calm: the city slides away, one lit window is left, and he is still there with the same expression. There is **no music**: the sound is only foley, effects and ambience. A slow heartbeat comes in as the trip deepens. To bring the score back (a plucked lullaby that wows like warped tape, drones, a glassy shimmer and a closing note), set `MUSIC = True` in `tools/sound.py` and run `node torn-paper-lucid/tools/remix.js`, which rebuilds only the sound and swaps it into the three videos without re-rendering the picture.
+
+- `index.html` plays it. Space, R, M, H and the slider work as before.
+  - `?loop` loops it, for Reels.
+  - `?trip=0.5` (calmer) up to `?trip=1.8` (stronger) sets how far it goes.
+  - `?lite` drops the boiling filter, and a slow machine does that on its own.
+- `torn-paper-lucid.mp4` is the 1080×1920 video. `torn-paper-lucid-16x9.mp4` and `torn-paper-lucid-1x1.mp4` show the same film mounted on kraft paper for landscape and square feeds.
+- **Voice-over**: `narration-timing.srt` has each Arabic line with its exact on-screen timing. Record it, save it as `narration.mp3` next to `index.html`, and the player plays it in sync. Running `node torn-paper-lucid/tools/record.js` then mixes it into all three videos (needs Playwright, ffmpeg, python3 + numpy).
+- `img/` holds the photo cut-outs from an earlier version; the current film doesn't use them.
