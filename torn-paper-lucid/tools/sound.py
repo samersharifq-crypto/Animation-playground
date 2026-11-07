@@ -10,6 +10,10 @@
 # usage: python3 sound.py cues.json out.wav      (numpy only)
 import sys, json, wave, numpy as np
 
+# MUSIC = False leaves out the score (lullaby, drones, shimmer, closing note and the chords in the
+# tunnel arrivals) and keeps only sound effects, foley and ambience. Set it to True to bring the music back.
+MUSIC = False
+
 data = json.load(open(sys.argv[1]))
 SR, TOTAL = 44100, float(data['total'])
 N = int(SR * TOTAL)
@@ -46,35 +50,37 @@ def drone(fs, d):
             s += np.sin(2 * np.pi * (f + det) * x + rng.uniform(0, 6))
     return s / (3 * len(fs)) * np.minimum(1, x / 2) * np.minimum(1, (d - x) / 2)
 
-# ---------- music bus (gets tape wow later) ----------
-music = np.zeros((N, 2))
-beat = 60 / 66
-prog = [[50, 57, 62, 65, 69], [46, 53, 58, 62, 65], [43, 50, 55, 58, 62], [45, 52, 57, 61, 64]]  # Dm Bb Gm A
-bar = beat * 4; t = .3; k = 0
-while t < TOTAL - 2:
-    ch = prog[k % 4]
-    put(music, drone([midi(ch[0] - 12), midi(ch[1] - 12)], bar + 2), t, .09)
-    put(music, piano(midi(ch[0] - 12), 3.5), t, .16)
-    for j, st in enumerate([2, 3, 4, 3, 2, 4, 3, 1]):
-        if rng.random() < .8:
-            put(music, piano(midi(ch[st] + 12)), t + j * beat / 2, .07, pan=rng.uniform(-.5, .5))
-    t += bar; k += 1
-# glassy shimmer that grows with the trip
-sh = np.zeros(N)
-for f in [midi(86), midi(89), midi(93), midi(98)]:
-    sh += np.sin(2 * np.pi * f * T + 3 * np.sin(2 * np.pi * .13 * T)) * (.5 + .5 * np.sin(2 * np.pi * rng.uniform(.05, .2) * T + rng.uniform(0, 6)))
-sh *= trip ** 1.5 * .035
-music[:, 0] += sh; music[:, 1] += np.roll(sh, 900)
-# tape wow + flutter, deeper as the trip deepens: read the bus with a wobbling delay
-wow = .0025 + .012 * trip
-delay = wow * (1 + np.sin(2 * np.pi * .55 * T)) + .0006 * np.sin(2 * np.pi * 7 * T) * trip
-idx = np.clip(T - delay, 0, None) * SR
 mix = np.zeros((N, 2))
-for c in (0, 1):
-    mix[:, c] = np.interp(idx + (c * 40 * trip), np.arange(N), music[:, c])
-# a single clear note at the very end, after the drift has gone
-put(mix, piano(midi(62), 5) * .9 + piano(midi(74), 5) * .4, TOTAL - 5.5, .22)
-mix *= np.clip((TOTAL - T) / 2.0, 0, 1)[:, None]
+if MUSIC:
+    # ---------- music bus (gets tape wow later) ----------
+    music = np.zeros((N, 2))
+    beat = 60 / 66
+    prog = [[50, 57, 62, 65, 69], [46, 53, 58, 62, 65], [43, 50, 55, 58, 62], [45, 52, 57, 61, 64]]  # Dm Bb Gm A
+    bar = beat * 4; t = .3; k = 0
+    while t < TOTAL - 2:
+        ch = prog[k % 4]
+        put(music, drone([midi(ch[0] - 12), midi(ch[1] - 12)], bar + 2), t, .09)
+        put(music, piano(midi(ch[0] - 12), 3.5), t, .16)
+        for j, st in enumerate([2, 3, 4, 3, 2, 4, 3, 1]):
+            if rng.random() < .8:
+                put(music, piano(midi(ch[st] + 12)), t + j * beat / 2, .07, pan=rng.uniform(-.5, .5))
+        t += bar; k += 1
+    # glassy shimmer that grows with the trip
+    sh = np.zeros(N)
+    for f in [midi(86), midi(89), midi(93), midi(98)]:
+        sh += np.sin(2 * np.pi * f * T + 3 * np.sin(2 * np.pi * .13 * T)) * (.5 + .5 * np.sin(2 * np.pi * rng.uniform(.05, .2) * T + rng.uniform(0, 6)))
+    sh *= trip ** 1.5 * .035
+    music[:, 0] += sh; music[:, 1] += np.roll(sh, 900)
+    # tape wow + flutter, deeper as the trip deepens: read the bus with a wobbling delay
+    wow = .0025 + .012 * trip
+    delay = wow * (1 + np.sin(2 * np.pi * .55 * T)) + .0006 * np.sin(2 * np.pi * 7 * T) * trip
+    idx = np.clip(T - delay, 0, None) * SR
+    mix = np.zeros((N, 2))
+    for c in (0, 1):
+        mix[:, c] = np.interp(idx + (c * 40 * trip), np.arange(N), music[:, c])
+    # a single clear note at the very end, after the drift has gone
+    put(mix, piano(midi(62), 5) * .9 + piano(midi(74), 5) * .4, TOTAL - 5.5, .22)
+    mix *= np.clip((TOTAL - T) / 2.0, 0, 1)[:, None]
 
 # ---------- heartbeat while things come unstuck ----------
 def thud(f0=58):
@@ -131,7 +137,7 @@ def glint():                                   # a light catching the sunglasses
 def riser():                                   # a reversed swell that pulls you toward the tunnel
     d = 1.5; x = ts(d)
     s = sum(np.sin(2 * np.pi * midi(m) * x * (1 + .04 * x)) for m in (62, 69, 74, 81)) / 4
-    return (s * .5 + filt(noise(d), 800, 9000) * .5) * (x / d) ** 2.5
+    return ((s * .5 if MUSIC else 0) + filt(noise(d), 800, 9000) * .5) * (x / d) ** 2.5
 def tunnel():                                  # rushing air and a falling doppler tone through the tunnel
     d = 1.9; x = ts(d); n = filt(noise(d), 150, 3500)
     f = 520 * np.exp(-x * 1.2) + 60
@@ -141,7 +147,7 @@ def arrive():                                  # a soft low boom and an open cho
     x = ts(2.6)
     boom = np.sin(2 * np.pi * np.cumsum(42 + 30 * np.exp(-x * 6)) / SR) * np.exp(-x * 2.2)
     chord = sum(piano(midi(m), 2.6) for m in (62, 69, 74, 78)) / 4
-    return boom * .8 + chord * .6
+    return boom * .8 + (chord * .6 if MUSIC else 0)
 def flash():
     x = ts(.25); return (filt(noise(.25), 3000, 14000) + np.sin(2 * np.pi * 2200 * x) * .3) * np.exp(-x * 14)
 

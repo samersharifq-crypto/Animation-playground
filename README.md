@@ -134,7 +134,7 @@ His walk is keyed pose by pose, twelve poses a second, like real stop-motion.
 2. concentric paper rings and speed lines stream past in the dark, toward a light at the end
 3. the next scene comes up the tunnel to meet you and opens out
 
-Each passage pushes the trip a little higher for a moment, and its sound carries you through: a reversed swell pulls you in, air rushes past with a falling tone, and a low boom and an open chord land as you arrive.
+Each passage pushes the trip a little higher for a moment, and its sound carries you through: a reversed swell pulls you in, air rushes past with a falling tone, and a low boom lands as you arrive.
 
 **The trip** builds scene by scene and then fades away:
 - outlines boil every other frame
@@ -155,7 +155,7 @@ Each passage pushes the trip a little higher for a moment, and its sound carries
 - In the parade, the bus has a diesel rumble and air brakes, the tram has rail clacks and its bell, the birds flap and chirp, the tree rustles and the umbrella flaps.
 - A city traffic bed runs under both street scenes.
 
-At the end it is calm: the city slides away, one lit window is left, and he is still there with the same expression. The soundtrack follows the same curve. A plucked lullaby starts to wow like warped tape, then a slow heartbeat, drones and a glassy shimmer come in, and it settles on one clear note.
+At the end it is calm: the city slides away, one lit window is left, and he is still there with the same expression. There is **no music**: the sound is only foley, effects and ambience. A slow heartbeat comes in as the trip deepens. To bring the score back (a plucked lullaby that wows like warped tape, drones, a glassy shimmer and a closing note), set `MUSIC = True` in `tools/sound.py` and run `node torn-paper-lucid/tools/remix.js`, which rebuilds only the sound and swaps it into the three videos without re-rendering the picture.
 
 - `index.html` plays it. Space, R, M, H and the slider work as before.
   - `?loop` loops it, for Reels.
