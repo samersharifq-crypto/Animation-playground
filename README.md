@@ -164,3 +164,9 @@ At the end it is calm: the city slides away, one lit window is left, and he is s
 - `torn-paper-lucid.mp4` is the 1080×1920 video. `torn-paper-lucid-16x9.mp4` and `torn-paper-lucid-1x1.mp4` show the same film mounted on kraft paper for landscape and square feeds.
 - **Voice-over**: `narration-timing.srt` has each Arabic line with its exact on-screen timing. Record it, save it as `narration.mp3` next to `index.html`, and the player plays it in sync. Running `node torn-paper-lucid/tools/record.js` then mixes it into all three videos (needs Playwright, ffmpeg, python3 + numpy).
 - `img/` holds the photo cut-outs from an earlier version; the current film doesn't use them.
+
+## basira-hero/ — «سمّوه البطل»
+
+A 65-second vertical (9:16) بصيرة Short, the 4th in the «أمة الدوبامين» series. A medicine sold as weaker than morphine and named «the hero» (heroin), a cigarette machine that goes from 4 a minute to 20,000, then the phone in your pocket: *people haven't changed, the dose has.* It's torn-paper stop-motion at 12 fps, with word-by-word Arabic labels and foley only (no music).
+
+The props are drawn in code: the bottle and its HEROIN label printed letter by letter, the medal, the paper scale, the counters, the clock, and the cigarettes and notifications pouring down. The Gemini characters and backgrounds go in `basira-hero/assets/`. Until they arrive, drawn placeholders stand in for them. Cue times live in `basira-hero/cues.py`. See `basira-hero/README.md`.
