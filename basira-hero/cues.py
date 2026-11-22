@@ -12,32 +12,33 @@ C = {
     "batal":      0.9,   # سمّوه «البطل»
     "akhtar":     2.6,   # أخطر  -> glass cracks, light dims
     "awakhir":    4.3,   # في أواخر القرن التاسع عشر -> rip to the lab
-    "almania":    6.9,   # في ألمانيا
-    "waadu":      9.2,   # ووعدوا -> the paper scale
-    "akhaf":     10.4,   # أخفّ -> new bottle rises
-    "min":       10.9,
-    "morphin":   11.4,   # المورفين
-    "ikhtaru":   12.5,   # واختاروا له اسمًا -> bottle close-up
-    "heroin":    15.2,   # «هيروين» -> letters typed one by one
+    "almania":    6.6,   # كان الكيميائيون يبحثون عن مسكّن للألم -> camera pushes in
+    "waadu":      9.2,   # أخفّ إدمانًا من المورفين -> the paper scale
+    "akhaf":     9.5,   # أخفّ -> new bottle rises
+    "min":       10.5,
+    "morphin":   10.9,   # المورفين
+    "ikhtaru":   12.5,   # فابتكروا مركّبًا جديدًا -> bottle close-up
+    "heroin":    16.4,   # «هيروين» -> letters typed one by one
     "kalima":    16.6,   # من كلمة ألمانية
-    "shuja":     18.2,   # «الشجاع» -> HERO turns red, الشجاع on top
-    "lakin":     19.3,   # لكنّ البطل لم يكن أخفّ -> back to the scale
-    "akhaf2":    20.6,   # أخفّ -> scale slams over
-    "chem2":     21.1,   # cut to the chemist, hands on head
-    "aqwa1":     21.9,   # بل كان أقوى
-    "aqwa1b":    22.5,   # من
-    "aqwa1c":    23.0,   # المورفين
-    "x2":        24.4,   # بمرّتين -> counter ×2
-    "x5":        26.2,   # إلى خمس -> counter ×5
-    "medal":     27.0,   # medal falls
+    "shuja":     18.7,   # «شجاع» -> HERO turns red, شجاع on top
+    "lakin":     19.6,   # لكنّ البطل لم يكن أخفّ -> back to the scale
+    "akhaf2":    20.9,   # أخفّ -> scale slams over
+    "chem2":     21.4,   # cut to the chemist, hands on head
+    "aqwa1":     22.2,   # بل كان أقوى
+    "aqwa1b":    22.8,
+    "aqwa1c":    23.2,
+    "x2":        24.6,   # بمرّتين -> counter ×2
+    "x5":        26.4,   # إلى خمس -> counter ×5
+    "medal":     27.2,   # medal falls
     # ---- part 2: الجرعة
     "qabl":      30.0,   # وقبل ذلك بسنوات -> page flip to the factory
-    "y1880":     31.9,   # سنة ألف وثمانمئة وثمانين
-    "arba":      35.2,   # أربع سجائر -> clock + four cigarettes
-    "sajaer":    35.6,
-    "machine":   37.3,   # ثم جاءت آلة لفّ السجائر -> machine drops
-    "ishrin":    40.3,   # عشرين ألفًا -> cascade, counter 4 -> 20,000
-    "alfan":     40.8,
+    "y1880":     37.4,   # سنة ألف وثمانمئة وثمانين -> 1880 stamped as the machine runs
+    "arba":      33.0,   # أربع سجائر -> clock + four cigarettes
+    "sajaer":    33.4,
+    "machine":   35.3,   # ثمّ اختُرعت آلة لفّ السجائر -> machine drops
+    "ishrin":    40.9,   # إلى عشرين ألفًا -> cascade, counter 4 -> 20,000
+    "alfan":     41.3,
+    "ismen":     14.4,   # واختاروا له اسمًا يليق بالأبطال
     "insan":     42.7,   # الإنسان لم يتغيّر -> cream page
     "lam":       43.2,
     "yataghayar":43.6,

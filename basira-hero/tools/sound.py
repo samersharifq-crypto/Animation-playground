@@ -132,7 +132,7 @@ put(clink(), C["medal"] + 0.45, 0.6); put(clink() * .6, C["medal"] + 0.62, 0.4)
 # ---- part 2
 put(thud(0.4, 110, .1), C["y1880"], .6)
 t = C["arba"]
-while t < C["alfan"] + 1.4:                                                 # the clock
+while t < C["machine"]:                                                 # the clock
     put(click() * .6, t, .45, .4); t += 0.5
 for i in range(4): put(add(click() * .8, thud(.15, 200, .03) * .3), C["arba"] + i * .4, .6, -.3)
 put(thud(1.0, 40, .35), C["machine"] + 0.45, 1.0)

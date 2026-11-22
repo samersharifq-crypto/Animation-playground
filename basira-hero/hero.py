@@ -169,7 +169,7 @@ def s_name(t, f, c):
     paste(c, N.bottle(h, "bottle", "HEROIN", letters, red), x, y, seed=14, f=f)
     if t >= C["shuja"] - 0.08:
         lx, ly = N.label_point(h, x, y, fx=0.36, fy=0.0)
-        P.paste_pop(c, P.card("الشجاع", 96, seed=5), lx, ly - 70, t, C["shuja"] - 0.08, f, seed=41, rot=-4)
+        P.paste_pop(c, P.card("شجاع", 104, seed=5), lx, ly - 70, t, C["shuja"] - 0.08, f, seed=41, rot=-4)
 
 
 def cam_name(t, f):
@@ -247,8 +247,8 @@ def s_factory(t, f, c):
     ws = step(t, C["machine"], C["machine"] + 0.6)
     wx, wy, wh = WORKER
     paste(c, fig("worker", wh), wx - 250 * ws, wy, seed=5, f=f)
-    if t >= C["arba"] - 0.2:
-        turn = min(1, (t - C["arba"]) / (C["alfan"] + 1.4 - C["arba"]))
+    if C["arba"] - 0.2 <= t < C["machine"] + 0.2:      # the slow minute, only for the hand-rolled four
+        turn = min(1, (t - C["arba"]) / (C["machine"] - C["arba"]))
         N.draw_clock(c, CLOCK[0], CLOCK[1], CLOCK[2], turn, f)
     n = sum(1 for i in range(4) if t >= C["arba"] + i * 0.4)
     for i in range(n):
@@ -288,7 +288,7 @@ def cam_factory(t, f):
     return dict(z=ramp(t, C["ishrin"], C["insan"], 1.0, 1.12), fx=CX, fy=900)
 
 
-STAMPS = (("أقوى", "aqwa", 900, -4), ("أسرع", "asra", 1120, 3), ("أكثر", "akthar", 1340, -2))
+STAMPS = (("أقوى", "aqwa", 1010, -4), ("أسرع", "asra", 1200, 3), ("أكثر", "akthar", 1390, -2))
 
 
 def s_cream(t, f, c):
@@ -297,7 +297,7 @@ def s_cream(t, f, c):
         if t < t0: continue
         k = int((t - t0) * E.FPS)
         s = {0: 1.7, 1: 0.9, 2: 1.04}.get(k, 1.0)
-        im = P.card(word, 160, seed=len(word) * 7)
+        im = P.card(word, 140, seed=len(word) * 7)
         if s != 1: im = im.resize((int(im.width * s), int(im.height * s)), Image.LANCZOS)
         paste(c, im, CX, y, rot=rot, seed=50 + len(word), f=f)
 
@@ -401,16 +401,17 @@ L = E.Label
 LABELS = [
     L("سمّوه البطل", ("البطل",), [0.3, C["batal"]], hide=C["awakhir"], y=Y, size=96),
     L("أواخر القرن التاسع عشر", (), [C["awakhir"] + .15, C["awakhir"] + .5, C["awakhir"] + .85, C["awakhir"] + 1.2], hide=C["waadu"], y=Y, size=70),
-    L("ألمانيا", (), [C["almania"]], hide=C["waadu"], y=Y + 130, size=64),
     L("أخفّ من المورفين", ("أخفّ", "من", "المورفين"), [C["akhaf"], C["min"], C["morphin"]], hide=C["ikhtaru"], y=Y, size=86),
-    L("اسمًا يليق بالأبطال", (), [C["ikhtaru"] + .6, C["ikhtaru"] + 1.0, C["ikhtaru"] + 1.5], hide=C["heroin"], y=Y, size=74),
+    L("اسمًا يليق بالأبطال", (), [C["ismen"], C["ismen"] + .5, C["ismen"] + 1.0], hide=C["heroin"], y=Y, size=74),
     L("لم يكن أخفّ", ("أخفّ",), [C["lakin"] + .5, C["lakin"] + .9, C["akhaf2"]], hide=C["chem2"], y=Y, size=86),
     L("أقوى من المورفين", ("أقوى",), [C["aqwa1"], C["aqwa1b"], C["aqwa1c"]], hide=C["medal"] + 0.5, y=Y, size=80),
-    L("1880", ("1880",), [C["y1880"]], hide=C["arba"] - 0.1, y=Y, size=110),
+    L("1880", ("1880",), [C["y1880"]], hide=C["ishrin"] - 0.1, y=Y, size=110),
     L("أربع سجائر", ("أربع", "سجائر"), [C["arba"], C["sajaer"]], hide=C["machine"], y=Y, size=88),
     L("عشرين ألفًا", ("عشرين", "ألفًا"), [C["ishrin"], C["alfan"]], hide=C["insan"], y=Y, size=96),
     L("الإنسان لم يتغيّر", (), [C["insan"], C["lam"], C["yataghayar"]], hide=C["alladhi"], y=560, size=86),
     L("الذي تغيّر هو الجرعة", ("الجرعة",), [C["alladhi"], C["taghayar"], C["huwa"], C["jura"]], hide=C["yawm"], y=560, size=80),
+    L("«فلقد خلق العرض طلبًا دائمًا»", (), [C["jura"] + .3] * 5, hide=C["yawm"], y=700, size=54),
+    L("آنا لمبكي · أمة الدوبامين", (), [C["jura"] + .3] * 5, hide=C["yawm"], y=805, size=34),
     L("اليوم", (), [C["yawm"]], hide=C["daqiqa"] - 0.2, y=Y, size=96),
     L("في دقيقة", (), [C["daqiqa"] - 0.3, C["daqiqa"]], hide=C["fahal"], y=Y, size=86),
     L("ما لم يحصل عليه جدّك في عام", ("عام",), [C["daqiqa"] + .6, C["daqiqa"] + 1.0, C["daqiqa"] + 1.4, C["daqiqa"] + 1.9, C["daqiqa"] + 2.3, C["am"] - .3, C["am"]], hide=C["fahal"], y=Y + 130, size=60),
