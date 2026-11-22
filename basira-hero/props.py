@@ -22,14 +22,15 @@ BRASS = (196, 154, 74)
 IRON = (52, 54, 60)
 
 
-def paper_edge(im, border=9, seed=5):
+def paper_edge(im, border=9, seed=5, fill=True):
     """Rough cream paper border around everything opaque (same look as E.cutout)."""
     a = np.asarray(im).copy()
     fg = a[..., 3] > 20
     rng = np.random.default_rng(seed)
     dist = ndimage.distance_transform_edt(~fg)
     n1 = ndimage.gaussian_filter(rng.standard_normal(fg.shape), 5); n1 /= np.abs(n1).max() + 1e-6
-    paper = ndimage.binary_fill_holes(dist <= border + 4 * n1)
+    paper = dist <= border + 4 * n1
+    if fill: paper = ndimage.binary_fill_holes(paper)
     out = np.zeros_like(a)
     out[paper, :3] = E.CREAM; out[paper, 3] = 255
     m = a[..., 3:4] / 255.0
@@ -437,3 +438,124 @@ def eye(size=260, open_=1.0):
         d.ellipse((c - size * .14, c - size * .14, c + size * .14, c + size * .14), fill=E.BRICK + (255,))
         d.ellipse((c - size * .06, c - size * .06, c + size * .06, c + size * .06), fill=E.INK + (255,))
     return im
+
+
+# ------------------------------------------------------------------ cut-paper cigarette machine
+# Drawn in code in the same layered torn-paper look as the Gemini props (Gemini limit reached).
+MACHINE_WHEEL = (-0.30, 0.02)    # flywheel centre, as a fraction of the body image (from its centre)
+MACHINE_CHUTE = (0.47, 0.20)     # where the cigarettes come out
+
+
+def _paper_tex(shape, seed, amp=14):
+    r = np.random.default_rng(seed)
+    low = ndimage.gaussian_filter(r.standard_normal(shape), 18); low /= np.abs(low).max() + 1e-6
+    fib = ndimage.gaussian_filter(r.standard_normal(shape), 1.0); fib /= np.abs(fib).max() + 1e-6
+    return low * amp + fib * amp * 0.45
+
+
+def torn_piece(lay, pts, color, seed, edge=(236, 228, 210), amp=4.5, rim=5):
+    """One torn paper scrap: pale fibrous rim peeking out under the coloured face."""
+    d = ImageDraw.Draw(lay)
+    r = np.random.default_rng(seed)
+    def jag(p, a):
+        base = []
+        for (x0, y0), (x1, y1) in zip(p, p[1:] + p[:1]):
+            n = max(2, int(math.hypot(x1 - x0, y1 - y0) / 4))
+            for i in range(n):
+                u = i / n; base.append((x0 + (x1 - x0) * u, y0 + (y1 - y0) * u))
+        m = len(base)
+        wob = ndimage.gaussian_filter1d(r.standard_normal((m, 2)), 3, axis=0, mode="wrap")
+        wob = wob / (np.abs(wob).max() + 1e-6) * a
+        fine = r.standard_normal((m, 2)) * a * 0.18
+        return [(x + wob[i, 0] + fine[i, 0], y + wob[i, 1] + fine[i, 1]) for i, (x, y) in enumerate(base)]
+    cx = sum(p[0] for p in pts) / len(pts); cy = sum(p[1] for p in pts) / len(pts)
+    grow = [(x + (x - cx) / max(1, math.hypot(x - cx, y - cy)) * rim, y + (y - cy) / max(1, math.hypot(x - cx, y - cy)) * rim) for x, y in pts]
+    d.polygon(jag(grow, amp * 1.4), fill=edge + (255,))
+    d.polygon(jag(pts, amp), fill=tuple(color) + (255,))
+
+
+def rect(x0, y0, x1, y1):
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+
+def circle(cx, cy, r, n=40):
+    return [(cx + r * math.cos(a), cy + r * math.sin(a)) for a in np.linspace(0, 2 * math.pi, n, endpoint=False)]
+
+
+def _texture(im, seed):
+    a = np.asarray(im).astype(float)
+    a[..., :3] += _paper_tex(a.shape[:2], seed)[..., None]
+    return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), "RGBA")
+
+
+@functools.lru_cache(None)
+def machine_body():
+    S = 1000
+    lay = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    iron, iron2, iron3 = (50, 52, 58), (72, 74, 82), (36, 38, 44)
+    brass, tob = (186, 146, 72), (128, 84, 46)
+    # legs and base
+    for x in (300, 690):
+        torn_piece(lay, [(x - 30, 720), (x + 30, 720), (x + 44, 930), (x - 44, 930)], iron3, x)
+        torn_piece(lay, rect(x - 75, 925, x + 75, 960), iron, x + 1)
+    torn_piece(lay, rect(270, 840, 730, 870), iron2, 3)
+    # hopper with tobacco
+    torn_piece(lay, [(330, 70), (690, 70), (610, 280), (410, 280)], iron2, 4)
+    torn_piece(lay, [(345, 70), (420, 30), (500, 52), (580, 22), (675, 70)], tob, 5, edge=(196, 150, 96))
+    for k in range(9):
+        x = 370 + k * 35
+        torn_piece(lay, rect(x, 40 + (k % 3) * 8, x + 14, 78), (150, 102, 58), 50 + k, edge=(196, 150, 96), rim=2)
+    torn_piece(lay, rect(320, 60, 700, 90), iron, 6)
+    # main body
+    torn_piece(lay, rect(230, 270, 790, 740), iron, 7)
+    torn_piece(lay, rect(270, 310, 750, 470), iron2, 8)
+    torn_piece(lay, rect(270, 500, 750, 700), iron2, 9)
+    # rollers / drum and gears
+    torn_piece(lay, circle(600, 390, 62), iron3, 10)
+    torn_piece(lay, circle(600, 390, 26), brass, 11, edge=(230, 200, 140))
+    for gx, gy, gr in ((420, 600, 48), (500, 640, 30)):
+        teeth = []
+        for k in range(28):
+            a = k * math.pi * 2 / 28; rr = gr + (8 if k % 2 else 0)
+            teeth.append((gx + rr * math.cos(a), gy + rr * math.sin(a)))
+        torn_piece(lay, teeth, brass, gx, edge=(230, 200, 140), rim=3)
+        torn_piece(lay, circle(gx, gy, gr * .3), iron3, gx + 1, rim=2)
+    # long paper roll belt running to the chute
+    torn_piece(lay, rect(640, 560, 790, 590), (232, 226, 210), 12, edge=(250, 246, 236), rim=3)
+    # chute at the front (right)
+    torn_piece(lay, [(770, 560), (930, 610), (950, 680), (770, 640)], iron2, 13)
+    torn_piece(lay, [(780, 600), (935, 640), (940, 660), (780, 625)], iron3, 14, rim=2)
+    for k in range(3):
+        x = 800 + k * 40
+        torn_piece(lay, [(x, 600 + k * 11), (x + 60, 615 + k * 11), (x + 60, 627 + k * 11), (x, 612 + k * 11)], (246, 240, 226), 60 + k, rim=2)
+    # rivets
+    d = ImageDraw.Draw(lay)
+    for x in range(255, 780, 66):
+        for y in (285, 725):
+            d.ellipse((x - 6, y - 6, x + 6, y + 6), fill=brass + (255,))
+    # axle stub where the flywheel sits
+    torn_piece(lay, circle(350, 520, 30), brass, 15, edge=(230, 200, 140))
+    im = _texture(lay, 21)
+    return paper_edge(im, border=8, seed=9, fill=False)
+
+
+@functools.lru_cache(None)
+def machine_wheel(r=170, angle=0):
+    S = r * 2 + 60; c = S / 2
+    lay = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    iron, iron3, brass = (58, 60, 66), (36, 38, 44), (186, 146, 72)
+    torn_piece(lay, circle(c, c, r, 60), iron, 31)
+    torn_piece(lay, circle(c, c, r - 34, 60), (0, 0, 0), 32, edge=(0, 0, 0), rim=0)
+    a = np.asarray(lay).copy()
+    yy, xx = np.mgrid[0:S, 0:S]; hole = (xx - c) ** 2 + (yy - c) ** 2 < (r - 34) ** 2
+    a[hole] = 0
+    lay = Image.fromarray(a, "RGBA")
+    for k in range(6):
+        t = math.radians(angle + k * 60); n = math.radians(angle + k * 60 + 90)
+        x1, y1 = c + (r - 20) * math.cos(t), c + (r - 20) * math.sin(t)
+        w0, w1 = 16, 9
+        torn_piece(lay, [(c + w0 * math.cos(n), c + w0 * math.sin(n)), (x1 + w1 * math.cos(n), y1 + w1 * math.sin(n)),
+                         (x1 - w1 * math.cos(n), y1 - w1 * math.sin(n)), (c - w0 * math.cos(n), c - w0 * math.sin(n))], iron3, 40 + k, rim=3)
+    torn_piece(lay, circle(c, c, 38), brass, 47, edge=(230, 200, 140))
+    torn_piece(lay, circle(c, c, 12), iron3, 48, rim=2)
+    return paper_edge(_texture(lay, 22), border=7, seed=10, fill=False)

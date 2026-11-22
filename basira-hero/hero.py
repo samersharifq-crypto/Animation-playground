@@ -152,16 +152,18 @@ def s_factory(t, f, c):
         k = step(t, C["machine"], C["machine"] + 0.45)
         y = -m.height + (my + m.height) * k
         hum = (E.jit(f, 99, 4, 0.8) if t > C["machine"] + 0.6 else (0, 0, 0))
-        if not REAL("machine"):
-            P_wheel = P.flywheel(150, (t * 300 if t > C["machine"] + 0.6 else 0) // 15 * 15)
-            paste(c, P_wheel, mx - m.width * 0.36 + hum[0], y + 40 + hum[1], shadow=True)
         paste(c, m, mx + hum[0], y + hum[1], rot=hum[2], seed=7, f=f)
+        if not REAL("machine"):             # the flywheel spins once the machine is running
+            sc = m.height / P.machine_body().height
+            spin = int(t * (420 if t > C["ishrin"] else 240)) // 15 * 15 % 360 if t > C["machine"] + 0.6 else 0
+            wheel = P.machine_wheel(int(170 * sc), spin)
+            paste(c, wheel, mx + P.MACHINE_WHEEL[0] * m.width + hum[0], y + P.MACHINE_WHEEL[1] * m.height + hum[1], seed=7, f=f)
         if k >= 1 and t < C["ishrin"] + 0.05:
             pass
     # the flood: twenty thousand in the same minute
     if t >= C["ishrin"]:
         m, mx, my = machine_geom()
-        chute = (mx + m.width * 0.46, my + m.height * 0.17)
+        chute = (mx + P.MACHINE_CHUTE[0] * m.width, my + P.MACHINE_CHUTE[1] * m.height)
         P.pour(c, t, C["ishrin"], C["insan"] - 0.25, chute, 1300, P.cig_sprite, seed=5, top=-160, f=f)
     # counter 4 -> 20,000
     if t >= C["sajaer"] + 0.2:

@@ -41,10 +41,10 @@ def main():
         if find(name): E.match_orange(name)
         status[name] = "real" if find(name) else "placeholder"
     src = find("machine")
-    if not src:
-        src = os.path.join(E.ROOT, "cut", "_ph_machine.png"); P.placeholder_machine().save(src)
-    E.cutout("machine", src, border=6)
-    status["machine"] = "real" if find("machine") else "placeholder"
+    if src:
+        E.cutout("machine", src, border=6); status["machine"] = "real"
+    else:                                   # cut-paper machine drawn in code, flywheel animated separately
+        P.machine_body().save(os.path.join(E.ROOT, "cut", "machine.png")); status["machine"] = "drawn"
     for name in ("lab", "factory", "room"):
         src = find(name); dst = os.path.join(E.ROOT, "bg", name + ".png")
         if src:
