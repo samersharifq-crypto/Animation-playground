@@ -115,15 +115,15 @@ def chain_lock(path):
     im.save(path)
 
 
-def calendar(path):
+def calendar(path, year="1920"):
     im = Image.new("RGB", (660, 760), WHITE); d = ImageDraw.Draw(im)
     d.rectangle((40, 60, 620, 720), fill=E.CREAM, outline=NV, width=6)
     d.rectangle((40, 60, 620, 210), fill=E.BRICK, outline=NV, width=6)
     for x in (170, 490):
         d.rounded_rectangle((x - 16, 20, x + 16, 110), 14, fill=(60, 64, 74), outline=NV, width=4)
     f = font(230)
-    tw = d.textlength("1920", font=f)
-    d.text(((660 - tw) / 2, 290), "1920", font=f, fill=NV)
+    tw = d.textlength(year, font=f)
+    d.text(((660 - tw) / 2, 290), year, font=f, fill=NV)
     for y in (650, 680): d.line([(110, y), (550, y)], fill=(200, 188, 168), width=4)
     im.save(path)
 

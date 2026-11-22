@@ -165,11 +165,11 @@ At the end it is calm: the city slides away, one lit window is left, and he is s
 - **Voice-over**: `narration-timing.srt` has each Arabic line with its exact on-screen timing. Record it, save it as `narration.mp3` next to `index.html`, and the player plays it in sync. Running `node torn-paper-lucid/tools/record.js` then mixes it into all three videos (needs Playwright, ffmpeg, python3 + numpy).
 - `img/` holds the photo cut-outs from an earlier version; the current film doesn't use them.
 
-## basira-prohibition/ — «حين مُنع، قلّ» (draft)
+## basira-prohibition/ — «حين مُنع، قلّ»
 
-First draft of Part 1 (0:00–0:28) of the بصيرة Short about Prohibition, in vertical 1080×1920 torn-paper stop-motion at 12 fps.
-The characters and backgrounds are paper placeholders drawn in code until the Gemini images arrive, and the timings are estimates until the voice is recorded.
+The بصيرة Short about Prohibition: a 60-second vertical (1080×1920) torn-paper stop-motion at 12 fps, built from the Gemini cut-outs and backgrounds in `src/`.
+The past is cut like an old film (sepia flicker, scratches, rounded gate, projector rattle), with classic transitions: an iris on the padlock, a silent-film title card, a spinning newspaper, a hard diagonal wipe, a film burn, a clock wipe for 1920→1933 and saloon doors swinging open. The camera only pushes in. At «اليوم» it glitches into a clean modern look.
 
-- `prohibition_part1_draft_v1.mp4`: the draft, with synthesised foley and no music.
-- `make_assets.py` draws the placeholders and cuts them out, `part_1.py` builds the scenes, `foley_1.py` makes the sound, and `basira_engine.py` is the shared engine.
-- To rebuild: `python3 make_assets.py && python3 foley_1.py && python3 part_1.py 0 336`, then encode with `E.encode`.
+- `prohibition_film_v1.mp4`: the draft with placeholder foley and no voice. The timings are estimates until the narration is recorded.
+- `prep.py` cleans the images and makes the cut-outs, `film.py` renders the frames (`python3 film.py 0 714`), and `foley_film.py` makes the sound.
+- `prohibition_part1_draft_v1.mp4` is the earlier placeholder draft (`make_assets.py`, `part_1.py`, `foley_1.py`).
