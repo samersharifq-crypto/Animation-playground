@@ -10,7 +10,7 @@ import basira_engine as E
 E.setup(os.path.join(HERE, "proj"), os.path.join(HERE, "font", "ReemKufi.ttf"))
 W, H, FPS = E.W, E.H, E.FPS
 OUT = os.path.join(E.ROOT, "film"); os.makedirs(OUT, exist_ok=True)
-DUR = 59.5
+DUR = 61.5
 T_TODAY = 44.0                     # old-film look before this, clean modern look after
 
 
@@ -357,25 +357,47 @@ def sc_rule(t, f):                                      # I 38.6-44: the closer 
         d = ImageDraw.Draw(c)
         d.rectangle((x - 50, y1, x + 50, y0), fill=E.BRICK + (255,), outline=E.CREAM + (255,), width=8)
         arrow_head(c, (x, y1 - 10), -90, f, 70)
+    if 38.8 <= t < 40.5:
+        E.paste(c, quote_img(), 540, 600, rot=1.0, seed=47, f=f)
     FOCUS["rule"] = (540, 1000)
     return c
 
 
+@functools.lru_cache(None)
+def quote_img():
+    lines = ["«سهولة الحصول على المخدر", "هي أحد أكبر عوامل الخطورة للإدمان»"]
+    fn = font(50); fs = font(34)
+    d0 = ImageDraw.Draw(Image.new("L", (1, 1)))
+    w = int(max(d0.textlength(l, font=fn, direction="rtl", language="ar") for l in lines) + 90)
+    im = Image.new("RGBA", (w, 270), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    r = np.random.default_rng(12); pts = []
+    for x in np.linspace(6, w - 6, 40): pts.append((x, 8 + r.normal(0, 3)))
+    for y in np.linspace(8, 262, 10): pts.append((w - 6 + r.normal(0, 3), y))
+    for x in np.linspace(w - 6, 6, 40): pts.append((x, 262 + r.normal(0, 3)))
+    for y in np.linspace(262, 8, 10): pts.append((6 + r.normal(0, 3), y))
+    d.polygon(pts, fill=(250, 246, 236, 255))
+    for i, l in enumerate(lines):
+        tw = d.textlength(l, font=fn, direction="rtl", language="ar")
+        d.text((w - 45 - tw, 28 + i * 72), l, font=fn, fill=E.INK + (255,), direction="rtl", language="ar")
+    src = "آنا لمبكي، أمة الدوبامين"
+    tw = d.textlength(src, font=fs, direction="rtl", language="ar")
+    d.text((45, 200), src, font=fs, fill=E.BRICK + (255,), direction="rtl", language="ar")
+    return im
+
+
 def sc_today(t, f):                                     # J 44-51: today, it's in your pocket
     c = E.paper_bg(f, (16, 24, 44))
-    c.alpha_composite(glow_at(680, 1080, 380, (150, 200, 255), 60))
-    yh = 1000; sc = E.scaled("youth", yh); cx, cy = 400, 1600 - yh / 2
-    E.paste(c, sc, cx, cy, seed=3, f=f)
+    yh = 1100; sc = E.scaled("youth_phone", yh); cx, cy = 520, 1150
     left, top = cx - sc.width / 2, cy - yh / 2
-    hx, hy = left + 0.90 * sc.width, top + 0.50 * yh
-    pulse = 0 <= t - 50.2 < 0.6
-    ph = make_phone_cached(220)
-    jx = np.random.default_rng(f).normal(0, 6) if pulse else 0
-    E.paste(c, ph, hx + 10 + jx, hy - 40, rot=-12, shadow=False, seed=42, f=f)
-    if pulse and (f % 2 == 0): c.alpha_composite(glow_at(int(hx), int(hy - 40), 300, (255, 240, 200), 90))
-    eye = (left + 0.66 * sc.width, top + 0.13 * yh)
-    ruler(c, (eye[0] + 20, eye[1] + 30), (hx - 10, hy - 110), E.step(t, 48.0, 48.5), f, seed=45, label="شبر")
-    FOCUS["today"] = (hx, hy)
+    eye = (left + 0.514 * sc.width, top + 0.262 * yh)
+    ph = (left + 0.693 * sc.width, top + 0.301 * yh)
+    c.alpha_composite(glow_at(int(ph[0]), int(ph[1]), 330, (170, 210, 255), 70))
+    E.paste(c, sc, cx, cy, seed=3, f=f)
+    c.alpha_composite(glow_at(int(ph[0]), int(ph[1]), 90, (235, 245, 255), 120))       # screen light
+    if 0 <= t - 50.2 < 0.6 and f % 2 == 0:                                              # «جيبك»: it buzzes
+        c.alpha_composite(glow_at(int(ph[0]), int(ph[1]), 320, (255, 244, 220), 110))
+    ruler(c, (eye[0] + 24, eye[1] + 6), (ph[0] - 34, ph[1] - 4), E.step(t, 48.0, 48.5), f, seed=45)
+    FOCUS["today"] = ph
     return c
 
 
@@ -404,6 +426,41 @@ def sc_drawer(t, f):                                    # K 51-59.5: put it away
     return c
 
 
+LOGO_CROP, LOGO_S = (700, 425, 1290, 705), 1.45
+
+@functools.lru_cache(None)
+def logo():
+    src = Image.open(os.path.join(HERE, "src", "logo_full.png")).convert("RGB")
+    k = src.width / 2000                                     # coordinates are on a 2000-px-wide copy
+    im = src.crop(tuple(int(v * k) for v in LOGO_CROP))
+    im = im.resize((int((LOGO_CROP[2] - LOGO_CROP[0]) * LOGO_S), int((LOGO_CROP[3] - LOGO_CROP[1]) * LOGO_S)), Image.LANCZOS)
+    a = np.asarray(im).astype(float); bgc = np.array([241, 234, 223])
+    alpha = np.clip((np.abs(a - bgc).sum(2) - 18) * 4, 0, 255)
+    return Image.fromarray(np.dstack([a, alpha]).astype(np.uint8), "RGBA")
+
+
+def sc_logo(t, f):                                      # the eye-bā' opens, then the full logo
+    c = E.paper_bg(f, E.CREAM)
+    lg = logo(); split = int((1085 - LOGO_CROP[0]) * LOGO_S) - 10
+    x0 = (W - lg.width) // 2; y0 = (H - lg.height) // 2
+    k = E.step(t, 59.7, 60.3); dx = int((540 - (x0 + (1185 - LOGO_CROP[0]) * LOGO_S)) * (1 - k))
+    mark = lg.crop((split, 0, lg.width, lg.height))
+    c.alpha_composite(mark, (x0 + split + dx, y0))
+    eye = (x0 + (1184 - LOGO_CROP[0]) * LOGO_S + dx, y0 + (658 - LOGO_CROP[1]) * LOGO_S)
+    if 59.25 <= t < 59.42:                                                   # blink
+        d = ImageDraw.Draw(c); r = 34
+        d.ellipse((eye[0] - r, eye[1] - r, eye[0] + r, eye[1] + r), fill=E.CREAM + (255,))
+        d.line([(eye[0] - r, eye[1]), (eye[0] + r, eye[1])], fill=E.BRICK + (255,), width=8)
+    u = E.step(t, 60.2, 60.8)
+    if u > 0:                                                                # wordmark inks in right -> left
+        wm = lg.crop((0, 0, split, lg.height)); cut = int(split * (1 - u))
+        c.alpha_composite(wm.crop((cut, 0, split, lg.height)), (x0 + cut, y0))
+    if t < 59.3:
+        c = iris(c, eye, 1600 * E.step(t, 58.6, 59.3) ** 1.4)
+    FOCUS["logo"] = eye
+    return c
+
+
 # scene list: (t0, t1, draw, transition into it, transition length)
 SCENES = [
     (0.0, 4.2, sc_night, None, 0),
@@ -417,7 +474,8 @@ SCENES = [
     (36.0, 38.6, sc_saloon, "barn", 0.6),
     (38.6, 44.0, sc_rule, "rip", 0.5),
     (44.0, 51.0, sc_today, "glitch", 0.4),
-    (51.0, DUR, sc_drawer, "rip", 0.5),
+    (51.0, 58.6, sc_drawer, "rip", 0.5),
+    (58.6, DUR, sc_logo, None, 0),
 ]
 IRIS_END = (57.4, 58.6)             # closing iris on the drawer, then black
 
@@ -546,7 +604,7 @@ def render_frame(f):
         cur = transition(s[3], prev, cur, (t - s[0]) / s[4], f, pf, cf)
     if not (4.2 <= t < 10.0):                         # card + newspaper carry their own text
         E.draw_labels(cur, LABELS, t, f)
-    if t >= IRIS_END[0]:
+    if IRIS_END[0] <= t < IRIS_END[1]:
         u = min(1, (t - IRIS_END[0]) / (IRIS_END[1] - IRIS_END[0]))
         cur = iris(cur, FOCUS.get("drawer", (W / 2, H / 2)), 1500 * (1 - u) ** 1.6)
     arr = np.asarray(cur.convert("RGB")).astype(float)

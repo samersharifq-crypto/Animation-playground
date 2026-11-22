@@ -5,7 +5,7 @@ from scipy.io import wavfile
 from scipy.signal import butter, lfilter
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-SR = 44100; DUR = 59.5; N = int(DUR * SR); T_TODAY = 44.0
+SR = 44100; DUR = 61.5; N = int(DUR * SR); T_TODAY = 44.0
 mix = np.zeros((N, 2)); rng = np.random.default_rng(1)
 
 
@@ -130,6 +130,7 @@ add(50.2, buzz(0.6), 0.6)
 add(51.0, rip(), 0.3); add(53.2, drawer(), 0.85)
 add(55.4, paper(0.5, 1500, 6000), 0.3)
 add(57.4, swish(1.2), 0.35); add(58.6, thud(60, 0.2), 0.6)
+add(58.7, thud(70, 0.15), 0.6); add(59.25, click(1400, 0.02), 0.4); add(59.7, paper(0.6), 0.3); add(60.2, paper(0.6, 1500, 6000), 0.3)
 for tt in (0.4, 0.8, 1.2, 10.3, 10.7, 12.0, 12.5, 13.3, 15.8, 16.2, 16.7, 17.8, 18.3, 18.8, 20.0, 20.5, 23.2, 23.9, 24.3,
            28.3, 28.8, 29.3, 30.4, 30.8, 31.1, 33.4, 34.6, 35.2, 36.4, 36.9, 37.6, 38.8, 39.4, 40.6, 41.0, 41.5,
            44.2, 45.0, 45.4, 45.8, 46.2, 46.8, 47.2, 47.6, 49.2, 49.7, 51.3, 51.7, 52.1, 52.6, 54.4):
