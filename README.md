@@ -164,3 +164,12 @@ At the end it is calm: the city slides away, one lit window is left, and he is s
 - `torn-paper-lucid.mp4` is the 1080×1920 video. `torn-paper-lucid-16x9.mp4` and `torn-paper-lucid-1x1.mp4` show the same film mounted on kraft paper for landscape and square feeds.
 - **Voice-over**: `narration-timing.srt` has each Arabic line with its exact on-screen timing. Record it, save it as `narration.mp3` next to `index.html`, and the player plays it in sync. Running `node torn-paper-lucid/tools/record.js` then mixes it into all three videos (needs Playwright, ffmpeg, python3 + numpy).
 - `img/` holds the photo cut-outs from an earlier version; the current film doesn't use them.
+
+## basira-prohibition/ — «حين مُنع، قلّ» (draft)
+
+First draft of Part 1 (0:00–0:28) of the بصيرة Short about Prohibition, in vertical 1080×1920 torn-paper stop-motion at 12 fps.
+The characters and backgrounds are paper placeholders drawn in code until the Gemini images arrive, and the timings are estimates until the voice is recorded.
+
+- `prohibition_part1_draft_v1.mp4`: the draft, with synthesised foley and no music.
+- `make_assets.py` draws the placeholders and cuts them out, `part_1.py` builds the scenes, `foley_1.py` makes the sound, and `basira_engine.py` is the shared engine.
+- To rebuild: `python3 make_assets.py && python3 foley_1.py && python3 part_1.py 0 336`, then encode with `E.encode`.
