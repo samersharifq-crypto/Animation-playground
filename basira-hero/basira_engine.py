@@ -52,6 +52,7 @@ def cutout(name, src, border=10, seed=7, min_hole=2500):
     y0, y1 = max(ys.min() - 30, 0), ys.max() + 30
     x0, x1 = max(xs.min() - 30, 0), xs.max() + 30
     Image.fromarray(rgba[y0:y1, x0:x1], "RGBA").save(os.path.join(ROOT, "cut", name + ".png"))
+    return int(x0), int(y0)
 
 def cutout_all(mapping, **kw):
     for k, v in mapping.items():

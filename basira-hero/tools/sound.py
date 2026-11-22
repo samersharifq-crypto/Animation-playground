@@ -97,8 +97,32 @@ def heartbeat():
 
 
 # ---- scene rips (every cut except the dimming of the room)
-for key in ("awakhir", "waadu", "ikhtaru", "lakin", "chem2", "qabl", "insan", "yawm", "logo"):
+def whoosh(sec=0.5, rise=True):
+    n = noise(sec); t = np.arange(len(n)) / SR
+    out_ = np.zeros_like(n); y = 0.0; a = 0.0
+    for k in range(0, len(n), 64):                       # band-limited noise that swells
+        out_[k:k + 64] = lowpass(n[k:k + 64 + 8], 3 + int(20 * (1 - k / len(n)) if rise else 3 + 20 * k / len(n)))[:len(out_[k:k + 64])]
+    return out_ * np.sin(np.pi * t / sec) ** 2 * 0.8
+
+
+def slats(sec=0.55):
+    s = np.zeros(int(sec * SR))
+    for k in range(14):
+        i = int(k / 14 * (sec - 0.05) * SR); c = click()[:1500] * 0.7
+        s[i:i + len(c)] += c
+    return s
+
+
+# ---- transitions (noir): zoom-through whooshes, blind slats, iris swells, paper rips
+for key in ("lakin", "insan"):
     put(rip(), C[key], 0.35, rng.uniform(-.3, .3))
+for key, d in (("awakhir", .45), ("ikhtaru", .4)):
+    put(whoosh(d * 2), C[key] - d, 0.5)
+for key in ("waadu", "yawm"):
+    put(slats(), C[key], 0.45)
+for key in ("qabl", "logo"):
+    put(whoosh(1.2), C[key] - 0.6, 0.35)
+put(thud(0.8, 44, .3), C["chem2"], 0.8)
 
 # ---- part 1
 put(tone(880, 1.4, .6) * .08 + tone(1320, 1.4, .5) * .05, 0.15)          # bottle chime under «سمّوه البطل»

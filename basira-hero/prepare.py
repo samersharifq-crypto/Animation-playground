@@ -57,8 +57,17 @@ def main():
         src = find(name)
         if src: shutil.copy(src, os.path.join(E.ROOT, "cut", name + ".png"))
         status[name] = "real" if src else "placeholder"
+    # Gemini props (cut-paper objects on white)
+    offs = {}
+    for name in ("bottle", "bottle_cracked", "bottle_morphine", "medal", "scale", "clock", "cigarettes", "notifications"):
+        src = find(name)
+        if src:
+            offs[name] = E.cutout(name, src, border=8); status[name] = "real"
+        else:
+            status[name] = "missing"
+    status["offsets"] = offs
     json.dump(status, open(os.path.join(E.ROOT, "cut", "status.json"), "w"), indent=1)
-    for k, v in status.items(): print(f"{k:12s} {v}")
+    for k, v in status.items(): print(f"{k:16s} {v}")
 
 
 if __name__ == "__main__":
