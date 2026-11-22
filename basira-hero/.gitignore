@@ -2,6 +2,5 @@ cut/
 bg/
 frames/
 *.wav
-!narration/*.wav
 sheet*.png
 __pycache__/

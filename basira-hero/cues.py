@@ -62,3 +62,10 @@ C = {
     "aqwa2":     60.8,
     "logo":      61.8,   # logo
 }
+
+# Real timings from the recorded voice (tools/voice.py) override the estimates above.
+import json as _json, os as _os
+_f = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "narration", "cues.json")
+if _os.path.exists(_f):
+    _d = _json.load(open(_f))
+    C.update(_d["C"]); DUR = _d["DUR"]; P2_START = _d["P2_START"]

@@ -397,13 +397,33 @@ SCENES = [
 ]
 
 Y = 360
+
+
+def _load_words():
+    f = os.path.join(HERE, "narration", "cues.json")
+    return json.load(open(f))["words"] if os.path.exists(f) else None
+
+
+WORDS = _load_words()
+
+
+def wt(part, word, n=1, default=0.0):
+    """Video time of the n-th spoken word starting with `word` (from the recorded voice)."""
+    if not WORDS: return default
+    k = 0
+    for t, w in WORDS[part]:
+        if w.startswith(word):
+            k += 1
+            if k == n: return t
+    return default
+
 L = E.Label
 LABELS = [
-    L("سمّوه البطل", ("البطل",), [0.3, C["batal"]], hide=C["awakhir"], y=Y, size=96),
-    L("أواخر القرن التاسع عشر", (), [C["awakhir"] + .15, C["awakhir"] + .5, C["awakhir"] + .85, C["awakhir"] + 1.2], hide=C["waadu"], y=Y, size=70),
+    L("سمّوه البطل", ("البطل",), [wt("P1", "سم", 1, 0.3), C["batal"]], hide=C["awakhir"], y=Y, size=96),
+    L("أواخر القرن التاسع عشر", (), [wt("P1", "أواخر", 1, C["awakhir"] + .15), wt("P1", "القرن", 1, C["awakhir"] + .5), wt("P1", "التاسع", 1, C["awakhir"] + .85), wt("P1", "عشر", 1, C["awakhir"] + 1.2)], hide=C["waadu"], y=Y, size=70),
     L("أخفّ من المورفين", ("أخفّ", "من", "المورفين"), [C["akhaf"], C["min"], C["morphin"]], hide=C["ikhtaru"], y=Y, size=86),
-    L("اسمًا يليق بالأبطال", (), [C["ismen"], C["ismen"] + .5, C["ismen"] + 1.0], hide=C["heroin"], y=Y, size=74),
-    L("لم يكن أخفّ", ("أخفّ",), [C["lakin"] + .5, C["lakin"] + .9, C["akhaf2"]], hide=C["chem2"], y=Y, size=86),
+    L("اسمًا يليق بالأبطال", (), [C["ismen"], wt("P1", "يليق", 1, C["ismen"] + .5), wt("P1", "بالأبطال", 1, C["ismen"] + 1.0)], hide=C["heroin"], y=Y, size=74),
+    L("لم يكن أخفّ", ("أخفّ",), [wt("P1", "لم", 1, C["lakin"] + .5), wt("P1", "يكن", 1, C["lakin"] + .9), C["akhaf2"]], hide=C["chem2"], y=Y, size=86),
     L("أقوى من المورفين", ("أقوى",), [C["aqwa1"], C["aqwa1b"], C["aqwa1c"]], hide=C["medal"] + 0.5, y=Y, size=80),
     L("1880", ("1880",), [C["y1880"]], hide=C["ishrin"] - 0.1, y=Y, size=110),
     L("أربع سجائر", ("أربع", "سجائر"), [C["arba"], C["sajaer"]], hide=C["machine"], y=Y, size=88),
@@ -413,8 +433,8 @@ LABELS = [
     L("«فلقد خلق العرض طلبًا دائمًا»", (), [C["jura"] + .3] * 5, hide=C["yawm"], y=700, size=54),
     L("آنا لمبكي · أمة الدوبامين", (), [C["jura"] + .3] * 5, hide=C["yawm"], y=805, size=34),
     L("اليوم", (), [C["yawm"]], hide=C["daqiqa"] - 0.2, y=Y, size=96),
-    L("في دقيقة", (), [C["daqiqa"] - 0.3, C["daqiqa"]], hide=C["fahal"], y=Y, size=86),
-    L("ما لم يحصل عليه جدّك في عام", ("عام",), [C["daqiqa"] + .6, C["daqiqa"] + 1.0, C["daqiqa"] + 1.4, C["daqiqa"] + 1.9, C["daqiqa"] + 2.3, C["am"] - .3, C["am"]], hide=C["fahal"], y=Y + 130, size=60),
+    L("في دقيقة", (), [C["daqiqa"] - 0.25, C["daqiqa"]], hide=C["fahal"], y=Y, size=86),
+    L("ما لم يحصل عليه جدّك في عام", ("عام",), [wt("P2", "ما", 1, C["daqiqa"] + .6), wt("P2", "لم", 2, C["daqiqa"] + 1.0), wt("P2", "يحصل", 1, C["daqiqa"] + 1.4), wt("P2", "عليه", 1, C["daqiqa"] + 1.9), wt("P2", "جدك", 1, C["daqiqa"] + 2.3), C["am"] - .25, C["am"]], hide=C["fahal"], y=Y + 130, size=60),
     L("فهل صرنا أضعف؟", ("أضعف؟",), [C["fahal"], C["sirna"], C["adaf"]], hide=C["logo"], y=Y, size=96),
     L("أم أنّ الجرعة صارت أقوى؟", ("الجرعة", "أقوى؟"), [C["am2"], C["anna"], C["jura2"], C["sarat"], C["aqwa2"]], hide=C["logo"], y=Y + 150, size=80),
 ]

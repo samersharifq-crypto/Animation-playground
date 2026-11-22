@@ -181,14 +181,14 @@ def write(path, x):
 
 
 write(os.path.join(HERE, "foley.wav"), foley)
-mix = foley.copy(); voice = False
-for name, t0 in (("P1", 0.0), ("P2", P2_START)):
-    hits = sorted(glob.glob(os.path.join(HERE, "narration", name + ".*")))
-    if hits:
-        v = read_any(hits[0]); i = int(t0 * SR); v = v[: N - i]
-        mix[: , :] *= 1.0
-        mix[i:i + len(v)] += v / max(1e-6, np.abs(v).max()) * 0.9; voice = True
+voice_f = os.path.join(HERE, "narration", "voice.wav")      # cleaned, tightened voice (tools/voice.py)
+mix = foley.copy(); voice = os.path.exists(voice_f)
 if voice:
+    v = read_any(voice_f)[:N]
+    v = np.pad(v, ((0, N - len(v)), (0, 0)))
+    env_ = np.convolve(np.abs(v[:, 0]), np.ones(int(.15 * SR)) / int(.15 * SR), mode="same")
+    duck = 1 - 0.55 * np.clip(env_ / 0.04, 0, 1)                # foley steps back under the voice
+    mix = foley * duck[:, None] * 0.8 + v
     mix = mix / max(1, np.abs(mix).max() / 0.98)
 write(os.path.join(HERE, "mix.wav"), mix)
-print("mix.wav", "with narration" if voice else "(foley only - no narration/P1, P2 yet)")
+print("mix.wav", "with the narration" if voice else "(foley only)")
