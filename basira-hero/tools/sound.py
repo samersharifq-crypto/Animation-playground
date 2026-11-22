@@ -113,15 +113,10 @@ def slats(sec=0.55):
     return s
 
 
-# ---- transitions (noir): zoom-through whooshes, blind slats, iris swells, paper rips
-for key in ("lakin", "insan"):
+# ---- transitions: paper rips right-to-left, a page turn into 1880
+for key in ("awakhir", "waadu", "ikhtaru", "lakin", "chem2", "insan", "yawm", "logo"):
     put(rip(), C[key], 0.35, rng.uniform(-.3, .3))
-for key, d in (("awakhir", .45), ("ikhtaru", .4)):
-    put(whoosh(d * 2), C[key] - d, 0.5)
-for key in ("waadu", "yawm"):
-    put(slats(), C[key], 0.45)
-for key in ("qabl", "logo"):
-    put(whoosh(1.2), C[key] - 0.6, 0.35)
+put(whoosh(0.7), C["qabl"], 0.35); put(rip(0.12) * .5, C["qabl"] + 0.55, 0.3)
 put(thud(0.8, 44, .3), C["chem2"], 0.8)
 
 # ---- part 1

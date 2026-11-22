@@ -31,6 +31,22 @@ def find(name):
     return None
 
 
+def logo_cut(src, dst):
+    """Logo on flat cream -> transparent PNG cropped to the artwork (the thin guide lines are dropped)."""
+    import numpy as np
+    from PIL import Image
+    a = np.asarray(Image.open(src).convert("RGB")).astype(float)
+    bg = np.median(np.concatenate([a[:8].reshape(-1, 3), a[-8:].reshape(-1, 3)]), axis=0)
+    d = np.abs(a - bg).max(axis=2)
+    alpha = np.clip((d - 18) / 50, 0, 1)
+    rows = (alpha > 0.5).sum(axis=1)
+    alpha[rows > a.shape[1] * 0.6] = 0                      # full-width guide lines
+    ys, xs = np.where(alpha > 0.5)
+    y0, y1, x0, x1 = ys.min() - 10, ys.max() + 10, xs.min() - 10, xs.max() + 10
+    rgba = np.dstack([a, alpha * 255]).astype(np.uint8)[y0:y1, x0:x1]
+    Image.fromarray(rgba, "RGBA").save(dst)
+
+
 def main():
     status = {}
     for name in ("chemist_k1", "chemist_k2", "worker", "young"):
@@ -55,7 +71,7 @@ def main():
         status[name] = "real" if src else "placeholder"
     for name in ("logo", "logo_eye"):
         src = find(name)
-        if src: shutil.copy(src, os.path.join(E.ROOT, "cut", name + ".png"))
+        if src: logo_cut(src, os.path.join(E.ROOT, "cut", name + ".png"))
         status[name] = "real" if src else "placeholder"
     # Gemini props (cut-paper objects on white)
     offs = {}
