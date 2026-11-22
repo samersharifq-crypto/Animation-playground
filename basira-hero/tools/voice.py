@@ -30,6 +30,18 @@ def plain(w):
     return "".join(ch for ch in w if not ("ً" <= ch <= "ْ") and ch not in "،,.؟?!«»:").strip()
 
 
+def voicing(x, sr=SR):
+    """Fraction of 40 ms frames with a clear pitch (75-350 Hz). Breaths and clicks score ~0."""
+    n = int(.04 * sr); v = tot = 0
+    for i in range(0, len(x) - n, n // 2):
+        f = x[i:i + n] - x[i:i + n].mean()
+        if np.sqrt(np.mean(f ** 2)) < 1e-3: continue
+        tot += 1
+        ac = np.correlate(f, f, "full")[n - 1:]; ac /= ac[0] + 1e-9
+        if ac[int(sr / 350):int(sr / 75)].max() > 0.45: v += 1
+    return v / max(1, tot)
+
+
 def transcribe(wav):
     from faster_whisper import WhisperModel
     m = WhisperModel("medium", device="cpu", compute_type="int8", cpu_threads=4)
@@ -48,6 +60,8 @@ def build(part, words_cache):
     words_cache[part] = words
     first, last = words[0][0], words[-1][1]
     segs = [(a, b) for a, b in segs if b > first - 0.3 and a < last + 0.4 and b - a > 0.2]
+    # drop breaths: segments with almost no voiced (pitched) frames
+    segs = [(a, b) for a, b in segs if voicing(v[S.t2i(a):S.t2i(b)]) >= 0.3]
     # snap word starts into real speech
     def snap(t):
         for a, b in segs:
