@@ -89,9 +89,9 @@ def world(t, f):
     # Death: drops in on «الموت», looms on «لم يهرب», settles on «فمدّ», chained on «فأغلقها»
     if t >= T["mawt"]:
         if t < T["faaghlaqaha"]:
-            k = E.step(t, T["mawt"], T["mawt"] + 0.9)
+            k = E.step(t, T["mawt"], T["mawt"] + 0.6)
             hover = 40 * (1 - E.step(t, T["famadda"], T["famadda"] + 1.2))
-            feet = -DEATH_H + (FEET - hover + DEATH_H) * k
+            feet = (FEET - hover) * k
             lunge = 6 if T["lam_yahrub"] <= t < T["lam_yahrub"] + 0.5 else 0
             bottom_paste(c, "death_fly", DEATH_H, DEATH_X, feet, 4, f, extra=lunge)
         else:
