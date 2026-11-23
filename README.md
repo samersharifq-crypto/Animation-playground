@@ -170,6 +170,7 @@ At the end it is calm: the city slides away, one lit window is left, and he is s
 The بصيرة Short about Prohibition: a 60-second vertical (1080×1920) torn-paper stop-motion at 12 fps, built from the Gemini cut-outs and backgrounds in `src/`.
 The past is cut like an old film (sepia flicker, scratches, rounded gate, projector rattle), with classic transitions: an iris on the padlock, a silent-film title card, a spinning newspaper, a hard diagonal wipe, a film burn, a clock wipe for 1920→1933 and saloon doors swinging open. The camera only pushes in. At «اليوم» it glitches into a clean modern look.
 
-- `prohibition_film_v2.mp4`: the latest draft (sitting youth with the phone, the book quote and the بصيرة logo ending), with placeholder foley and no voice. `prohibition_film_v1.mp4` is the first version. The timings are estimates until the narration is recorded.
+- `prohibition_film_v3_voice.mp4`: synced to the recorded narration (cleaned, breaths removed), with effects under the voice. `voice_clean.m4a` is the cleaned voice on its own. Rebuild: `python3 transcribe.py`, `python3 voice.py`, `python3 film_sync.py warp`, `python3 foley_film.py`, `python3 mix.py`, `python3 film_sync.py 0 800`.
+- `prohibition_film_v2.mp4`: the previous draft (sitting youth with the phone, the book quote and the بصيرة logo ending), with placeholder foley and no voice. `prohibition_film_v1.mp4` is the first version. The timings are estimates until the narration is recorded.
 - `prep.py` cleans the images and makes the cut-outs, `film.py` renders the frames (`python3 film.py 0 714`), and `foley_film.py` makes the sound.
 - `prohibition_part1_draft_v1.mp4` is the earlier placeholder draft (`make_assets.py`, `part_1.py`, `foley_1.py`).
