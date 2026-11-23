@@ -5,7 +5,11 @@ from scipy.io import wavfile
 from scipy.signal import butter, lfilter
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-SR = 44100; DUR = 61.5; N = int(DUR * SR); T_TODAY = 44.0
+import json
+SR = 48000
+_W = json.load(open(os.path.join(HERE, "proj", "warp.json"))) if os.path.exists(os.path.join(HERE, "proj", "warp.json")) else None
+def M(t): return float(np.interp(t, _W["old"], _W["new"])) if _W else t
+DUR = _W["dur"] if _W else 61.5; N = int(DUR * SR); T_TODAY = M(44.0)
 mix = np.zeros((N, 2)); rng = np.random.default_rng(1)
 
 
@@ -18,8 +22,8 @@ def lp(x, hi):
 def env(n, a, d):
     t = np.arange(n) / SR; return np.minimum(t / a, 1) * np.exp(-t / d)
 
-def add(t, sig, gain=1.0, pan=0.0):
-    i = int(t * SR); sig = sig[: max(0, N - i)]
+def add(t, sig, gain=1.0, pan=0.0, raw=False):
+    i = int((t if raw else M(t)) * SR); sig = sig[: max(0, N - i)]
     mix[i:i + len(sig), 0] += sig * gain * (1 - max(0, pan)); mix[i:i + len(sig), 1] += sig * gain * (1 + min(0, pan))
 
 def noise(d): return rng.standard_normal(int(d * SR))
@@ -131,12 +135,10 @@ add(51.0, rip(), 0.3); add(53.2, drawer(), 0.85)
 add(55.4, paper(0.5, 1500, 6000), 0.3)
 add(57.4, swish(1.2), 0.35); add(58.6, thud(60, 0.2), 0.6)
 add(58.7, thud(70, 0.15), 0.6); add(59.25, click(1400, 0.02), 0.4); add(59.7, paper(0.6), 0.3); add(60.2, paper(0.6, 1500, 6000), 0.3)
-for tt in (0.4, 0.8, 1.2, 10.3, 10.7, 12.0, 12.5, 13.3, 15.8, 16.2, 16.7, 17.8, 18.3, 18.8, 20.0, 20.5, 23.2, 23.9, 24.3,
-           28.3, 28.8, 29.3, 30.4, 30.8, 31.1, 33.4, 34.6, 35.2, 36.4, 36.9, 37.6, 38.8, 39.4, 40.6, 41.0, 41.5,
-           44.2, 45.0, 45.4, 45.8, 46.2, 46.8, 47.2, 47.6, 49.2, 49.7, 51.3, 51.7, 52.1, 52.6, 54.4):
-    add(tt, paper(0.07, 2500, 8000), 0.1)
-
+if _W:
+    for ts in _W["labels"]:
+        for tt in ts: add(tt, paper(0.07, 2500, 8000), 0.1, raw=True)
 mix /= max(1e-6, np.abs(mix).max()) / 0.85
 os.makedirs(os.path.join(HERE, "proj"), exist_ok=True)
-wavfile.write(os.path.join(HERE, "proj", "foley_film.wav"), SR, (mix * 32767).astype(np.int16))
+wavfile.write(os.path.join(HERE, "proj", "sfx_sync.wav" if _W else "foley_film.wav"), SR, (mix * 32767).astype(np.int16))
 print("ok")
