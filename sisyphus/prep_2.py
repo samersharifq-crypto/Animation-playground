@@ -12,3 +12,8 @@ im.paste((255, 255, 255), (0, 0), m); im.save("clean/calendar.png")
 for n in ["hourglass", "old_man", "wounded", "sisyphus_kneel", "sisyphus_throne", "calendar"]:
     E.cutout(n.replace("sisyphus_", "sis_"), "clean/calendar.png" if n == "calendar" else f"src/{n}.jpg")
 E.cutout("hades", "src/hades.jpg", border=6)
+E.cutout("ares", "src/ares.jpg")
+# mirrored poses: Ares attacks from the right, Sisyphus walks left into the light
+from PIL import ImageOps
+for a, b in [("ares", "ares_l"), ("sis_walk", "sis_walk_l")]:
+    ImageOps.mirror(E.load(a)).save(f"proj/cut/{b}.png")
