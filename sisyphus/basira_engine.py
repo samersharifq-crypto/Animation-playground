@@ -20,13 +20,13 @@ def setup(root, font):
         os.makedirs(os.path.join(ROOT, d), exist_ok=True)
 
 # ------------------------------------------------------------------ cut-outs
-def cutout(name, src, border=10, seed=7, min_hole=2500, hole_margin=None):
+def cutout(name, src, border=10, seed=7, min_hole=2500, hole_margin=None, white_min=228):
     """White-background illustration -> transparent PNG with a rough cream paper border.
     Big white gaps (between two figures, inside an arm) stay see-through instead of turning white/cream."""
     rng = np.random.default_rng(seed)
     im = Image.open(src).convert("RGB")
     a = np.asarray(im).astype(np.int16)
-    white = (a.min(axis=2) > 228) & ((a.max(axis=2) - a.min(axis=2)) < 30)
+    white = (a.min(axis=2) > white_min) & ((a.max(axis=2) - a.min(axis=2)) < 30)
     lab, _ = ndimage.label(white)
     edge = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
     wsz = ndimage.sum(white, lab, range(1, lab.max() + 1))
