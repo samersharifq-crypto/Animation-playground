@@ -1,3 +1,4 @@
 file '../sisyphus_part1_v3.mp4'
 file '../sisyphus_part2_v2.mp4'
 file '../sisyphus_part3_v1.mp4'
+file '../sisyphus_part4_v1.mp4'
