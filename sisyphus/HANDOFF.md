@@ -3,10 +3,10 @@
 اقرأ هذا الملف أولًا في أي جلسة جديدة، ثم كمّل على نفس الفرع `claude/clever-fermat-y9e0jc`.
 
 ## الحالة
-- **الأجزاء ١–٨ جاهزة**، كلها بدون صوت والتوقيت تقديري من ملفات PDF.
-- آخر نسخة من كل جزء: `sisyphus_part1_v3` و`part2_v2` و`part3_v1` … `part8_v1`.
-- النسخة المتصلة: `sisyphus_parts1-8_v1.mp4`، طولها 3:55.
-- **الجاي:** الجزء ٩ ثم الباقي لين ١٥. المستخدم يرسل ملف PDF لكل جزء. نعطيه برومبتات الصور اللي يحتاجها، يولّدها في Gemini ويرسلها، ثم نبني المشهد ونرندره.
+- **الأجزاء ١–٩ جاهزة**، كلها بدون صوت والتوقيت تقديري من ملفات PDF.
+- آخر نسخة من كل جزء: `sisyphus_part1_v3` و`part2_v2` و`part3_v1` … `part9_v1`.
+- النسخة المتصلة: `sisyphus_parts1-9_v1.mp4`، طولها 4:26.
+- **الجاي:** الجزء ١٠ ثم الباقي لين ١٥. المستخدم يرسل ملف PDF لكل جزء. نعطيه برومبتات الصور اللي يحتاجها، يولّدها في Gemini ويرسلها، ثم نبني المشهد ونرندره.
 - **الصوت:** ما وصل لأي جزء. لما يوصل نشغّل مهارة `basira-narration-sound`، ونكتب `proj/times_N.json`. كل `part_N.py` يقرأ هذا الملف ويحدّث التوقيت تلقائيًا.
 
 ## طريقة الشغل
@@ -29,15 +29,16 @@
 - `part_N.py`: المشهد. الأوامر:
   - `python3 part_N.py keys 1.0,5.0,… out.png` يطلّع ورقة إطارات.
   - `python3 part_N.py a b` يرندر الإطارات من a إلى b، وكل جزء يكتب في `proj/framesN/`.
-- الجزء ٥ يستورد التل ومسار الصعود من `part_4.py`، والجزءان ٧ و٨ يستوردان ورق المربعات من `part_6.py`.
+- الجزء ٥ يستورد التل ومسار الصعود من `part_4.py`، والأجزاء ٧ و٨ و٩ تستورد ورق المربعات من `part_6.py`.
 - الجزء ٨: تانتالوس (`tantalus_reach`) مقصوص قطعتين بـ`E.pieces`: الرجل والغصن. وصلت معه صور زيادة ما استعملناها: `src/tantalus_stand.png` و`src/pomegranate_tree.png`.
+- الجزء ٩: صورة المسح الباهتة هي نفس `brain_scan` منزوعة الألوان في الكود (`scan_img(u)` يعبّيها من الوسط). أوراق التقويم الطايرة مقصوصة من `calendar_block` نفسه (`PAGE_BOX`).
 - الصامت والدمج: `ffmpeg -f lavfi -i anullsrc=r=48000:cl=mono -t DUR -c:a pcm_f32le proj/silenceN.wav`، بعدها `E.encode(..., frames_dir='proj/framesN')`، ثم `ffmpeg -f concat -safe 0 -i proj/concat.txt -c copy`.
 
 ## أوامر سريعة
 ```bash
 pip install scipy fonttools        # if missing
 cd sisyphus
-N=$(python3 -c "import part_9 as p;print(int(round(p.DUR*12)))"); Q=$(( (N+3)/4 ))
-(for i in 0 1 2 3; do python3 part_9.py $((i*Q)) $(((i+1)*Q)) & done; wait)
+N=$(python3 -c "import part_10 as p;print(int(round(p.DUR*12)))"); Q=$(( (N+3)/4 ))
+(for i in 0 1 2 3; do python3 part_10.py $((i*Q)) $(((i+1)*Q)) & done; wait)
 # encode with silence, then concat all parts (see git history of part 7 for the exact lines)
 ```
