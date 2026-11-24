@@ -16,6 +16,7 @@ FACES = {   # cutout name: [(cx, cy, rx, ry)] in cutout pixels
     "sis_look": [(458, 292, 66, 80)],
     "hades": [(250, 180, 40, 44), (598, 192, 30, 32)],
     "bored_man": [(338, 290, 88, 108)],
+    "sis_letgo": [(298, 104, 32, 42)],
 }
 
 def smudge(im, faces, seed=1):
