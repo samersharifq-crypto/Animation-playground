@@ -208,7 +208,7 @@ SCENES = [
 ]
 
 LABELS = [
-    E.Label("كورنثة", (), [T["korintha"]], hide=T["aash"]),
+    E.Label("كورنثة", (), [T["korintha"]], hide=T["aash"], x=480, y=100),
     E.Label("سيزيف", ("سيزيف",), [T["sisyphus"]], hide=T["wahina"], x=SIS_X, y=170),
     E.Label("الموت", ("الموت",), [T["mawt"]], hide=T["lam_yahrub"], x=DEATH_X + 470, y=150),
     E.Label("دحرجتَها أنت أمس", ("دحرجتَها", "أنت", "أمس"), [T["dahrajtaha"], T["anta"], T["ams"]], hide=DUR),
