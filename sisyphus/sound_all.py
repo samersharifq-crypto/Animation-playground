@@ -31,7 +31,6 @@ class Mix:
         self.voice = np.zeros(S.t2i(dur), np.float32)
         v = voice[:len(self.voice)]; self.voice[:len(v)] = v
         self.sfx = np.zeros_like(self.voice)
-        self.add(0, S.room(dur))
 
     def add(self, t, x, duck=False):
         if t < 0: x = x[S.t2i(-t):]; t = 0

@@ -82,13 +82,11 @@ MAP = {
 
 # dramatic pauses: (word to pause before, seconds)
 PAUSES = {
-    1: [("=لكن", 0.45)],
-    3: [("زيوس", 0.6)],                                  # lightning above his head
-    4: [("تت", 0.45)],                                   # «أفلتت»
-    12: [("=لا", 0.6), ("الصقطة", 0.6)],                 # the heart of the video: slow down around the line
-    15: [("=لم", 0.7)],                                  # silence after «أتاه الموت»
-    16: [("صير", 0.6)],                                  # tear to the logo
+    3: [("زيوس", 0.4)],                                  # lightning above his head
+    12: [("=لا", 0.5), ("الصقطة", 0.5)],                 # the heart of the video (asked for in the part's notes)
+    15: [("=لم", 0.5)],                                  # silence after «أتاه الموت» (asked for in the part's notes)
 }
+
 
 
 def word_index(vw_raw, tok):
@@ -127,3 +125,5 @@ def run(n):
 if __name__ == "__main__":
     for n in [int(x) for x in sys.argv[1:]] or sorted(MAP):
         run(n)
+    for d in V.DROPPED: print("  dropped (no speech under it):", d)
+    for n, m in V.MUTED: print(f"  part {n}: breaths muted inside phrases: {len(m)}")

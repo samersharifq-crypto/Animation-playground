@@ -5,8 +5,15 @@
 ## الحالة
 - **الأجزاء ١–١٦ كلها جاهزة**، كلها بدون صوت والتوقيت تقديري من ملفات PDF.
 - آخر نسخة من كل جزء: `sisyphus_part1_v3` و`part2_v2` و`part3_v1` … `part16_v1`.
-- **الفيديو الكامل بالصوت:** `sisyphus_full_v4.mp4`، طوله 8:20، وكل الأجزاء ١–١٦ فيها صوت. كل جزء نسخته `sisyphus_partN_v2.mp4`.
-- **سلسلة الصوت:** التسجيلات في `proj/rec/SpN.m4a`. نفرّغها بـfaster-whisper large-v3 إلى `proj/asr/SpN.json`، وسكربت التفريغ في git history (`vad_filter=True`, `condition_on_previous_text=False`، والصوت يدخل كمصفوفة لأن `av` يتعطل).
+- **الفيديو الكامل بالصوت:** `sisyphus_full_v5.mp4`، طوله 7:28. كل جزء نسخته `sisyphus_partN_v3.mp4`، والدمج من `proj/concat_v3.txt`.
+- **طلب المستخدم:** يبي صوته بس، بدون أنفاس ولا فراغات ولا أي صوت ثاني. عشان كذا:
+  - مقاطع الكلام نطلعها بـSilero VAD (`vad_segments`).
+  - الأنفاس داخل الجمل نكتمها في `breath_check.mute_breaths`، وأي شي مثل النفَس بين كلمتين ينكتم بعد.
+  - الفراغات = نص الفراغ الأصلي، بين 0.08 و0.32 ث.
+  - ما في صوت غرفة.
+  - الوقفات بس في ٣ و١٢ و١٥.
+  - للفحص: `python3 breath_check.py N`. المفروض ما يطلع إلا حروف صفير داخل الكلمات.
+- **سلسلة الصوت:** التسجيلات في `proj/rec/SpN.m4a`. نفرّغها بـfaster-whisper large-v3 إلى `proj/asr/SpN.json` (`python3 asr.py N` (`vad_filter=True`, `condition_on_previous_text=False`، والصوت يدخل كمصفوفة لأن `av` يتعطل).
   - `timing_all.py`: يقص الصوت عن طريق `voice_edit.py`. يحذف الأنفاس، أي مقطع ما فيه كلمة مفرّغة، ويقصّر الفراغات لين 0.5 ث. يحط الوقفات الدرامية (`PAUSES`)، ويكتب `proj/times_N.json` و`proj/vo_N.wav`.
   - `sound_all.py`: يبني `proj/mix_N.wav` من الصوت ومؤثرات مصنوعة بالكود بدون موسيقى.
   - كل `part_N.py` صار فيه `DUR = max(DUR, T['_end'] + 1.2)`.

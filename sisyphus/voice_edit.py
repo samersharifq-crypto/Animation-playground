@@ -8,8 +8,10 @@ import basira_sound as S
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLACE_AT = 0.5                                          # video time of the first word
-GAP_MAX, GAP_MIN = 0.5, 0.16                            # pauses between phrases after editing (s)
+GAP_MAX, GAP_MIN = 0.32, 0.08                           # pauses between phrases after editing (s)
 
+DROPPED = []
+MUTED = []
 _AR = str.maketrans("أإآٱىة", "اااايه")
 
 
@@ -24,13 +26,25 @@ def load_words(n):
     return [(a, b, w) for a, b, w, _ in d["words"]]
 
 
+def vad_segments(wav, threshold=0.45):
+    """speech spans from the Silero VAD (rejects breaths, lip smacks, clicks and room noise)"""
+    import subprocess
+    from faster_whisper.vad import get_speech_timestamps, VadOptions
+    raw = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", wav, "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
+                         capture_output=True).stdout
+    a = np.frombuffer(raw, np.float32)
+    ts = get_speech_timestamps(a, VadOptions(threshold=threshold, min_speech_duration_ms=120,
+                                              min_silence_duration_ms=80, speech_pad_ms=30))
+    return [(t["start"] / 16000, t["end"] / 16000) for t in ts]
+
+
 def build(n, pauses=None, gap_max=GAP_MAX, noise_db=-38):
     """pauses: {word_index: extra seconds inserted before that word}. Returns (voice array, words in video time)."""
     raw = os.path.join(HERE, "proj", "rec", f"Sp{n}.m4a")
     wav = os.path.join(HERE, "proj", f"voice_{n}.wav")
     if not os.path.exists(wav): S.clean(raw, wav, "light")
     _, v = wavfile.read(wav); v = v.astype(np.float32)
-    segs = S.speech_segments(raw, noise_db=noise_db)
+    segs = vad_segments(wav)
     words = load_words(n)
     for wi in sorted((pauses or {})):                    # a pause lands exactly before its word: split the span there
         cut = words[wi][0] - 0.04
@@ -45,7 +59,7 @@ def build(n, pauses=None, gap_max=GAP_MAX, noise_db=-38):
             o = min(b, sb) - max(a, sa)
             if o > ov: best, ov = i, o
         if best is None:                                 # no speech under it: a hallucinated word, drop it
-            continue
+            DROPPED.append((n, a, b, w)); continue
         sa, sb = segs[best]
         snapped.append((max(a, sa), min(max(b, sa + 0.05), sb), w, best, wi))
     keep = sorted({s[3] for s in snapped})               # spans without any word = breaths, clicks, noise
@@ -56,13 +70,13 @@ def build(n, pauses=None, gap_max=GAP_MAX, noise_db=-38):
         sg = by_word[wi]
         pause_before_seg[sg] = pause_before_seg.get(sg, 0) + sec
     out, pos, seg_map = [], PLACE_AT, {}
-    pre, post, fade = 0.07, 0.13, S.t2i(0.015)
+    pre, post, fade = 0.02, 0.05, S.t2i(0.012)
     prev_end = None
     for i in keep:
         sa, sb = segs[i]
         if prev_end is not None:
             gap = sa - prev_end
-            pos += float(np.clip(gap, GAP_MIN, gap_max))
+            pos += float(np.clip(gap * 0.5, GAP_MIN, gap_max))   # breaths and silences shrink to a short beat
         pos += pause_before_seg.get(i, 0.0)
         a, b = max(0.0, sa - pre), min(len(v) / S.SR, sb + post)
         chunk = v[S.t2i(a):S.t2i(b)].copy()
@@ -76,11 +90,21 @@ def build(n, pauses=None, gap_max=GAP_MAX, noise_db=-38):
     voice = np.zeros(S.t2i(total + 1), np.float32)
     for t0, ch in out:
         i = S.t2i(t0); voice[i:i + len(ch)] += ch
+    import breath_check
+    voice, muted = breath_check.mute_breaths(voice)    # breaths that sit inside a phrase, right before a word
+    MUTED.append((n, muted))
     vw = []
     for a, b, w, i, _ in snapped:
         if i not in seg_map: continue
         v0, r0 = seg_map[i]
         vw.append((round(v0 + a - r0, 3), round(v0 + b - r0, 3), w))
+    _, rest = breath_check.analyse(x=voice)              # anything noisy left that sits between two words is a breath
+    for a, b, db, cen in rest:
+        inside = any(s - 0.04 < (a + b) / 2 < e + 0.04 for s, e, _ in vw)
+        if inside or db > -24: continue
+        i, j = S.t2i(a - 0.02), S.t2i(b + 0.03); f = S.t2i(0.012)
+        g = np.full(j - i, 0.03, np.float32); g[:f] = np.linspace(1, 0.03, f); g[-f:] = np.linspace(0.03, 1, f)
+        voice[i:j] *= g; muted.append((a, b, db))
     return voice, vw, pos
 
 
