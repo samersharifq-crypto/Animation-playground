@@ -206,7 +206,11 @@ def part16(m, P, T):
 
 
 def part9(m, P, T):
-    pass
+    m.add(T["nura"] - 0.3, S.hum(P.CUT1 - T["nura"] + 0.3, -42))   # the scanner
+    m.add(P.FLIP0, S.whoosh(P.FLIP1 - P.FLIP0, -30))                # a year of calendar pages
+    for k in range(10): m.add(P.FLIP0 + k * (P.FLIP1 - P.FLIP0) / 10, S.tick(-33))
+    m.add(T["irtafaat"], warm(3.0, 220, -33))
+    m.add(T["yataafa"], S.ding(-30))
 
 
 EXTRA = {1: part1, 2: part2, 3: part3, 4: part4, 5: part5, 6: part6, 7: part7, 8: part8, 9: part9, 10: part10,

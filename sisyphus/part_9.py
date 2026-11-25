@@ -15,6 +15,7 @@ T = dict(khabar=0.0, aam=2.6, nura=4.0, folko=4.5, ashhur=9.0, jadid=15.0, sana=
 _tj = os.path.join(HERE, "proj", "times_9.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["waqtan"] + 3.0
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 CUT1 = T["ashhur"] - 0.4                                # scanner -> scans board
 CUT2 = T["lakinnahu"]                                   # board -> hourglass
 FLIP0, FLIP1 = T["jadid"], T["jadid"] + 3.2             # calendar pages fly
