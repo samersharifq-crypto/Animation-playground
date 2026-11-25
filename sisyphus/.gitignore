@@ -1,22 +1,6 @@
-proj/frames/
-proj/keys/
+# rendered frames, key-frame previews and intermediate audio are rebuilt from the scripts
+proj/frames*/
+proj/keys*/
+proj/*.wav
 __pycache__/
 font/ReemKufi-VF.ttf
-proj/frames2/
-proj/keys2/
-proj/frames3/
-proj/keys3/
-proj/frames4/
-proj/keys4/
-proj/frames5/
-proj/keys5/
-proj/frames6/
-proj/keys6/
-proj/frames7/
-proj/keys7/
-proj/frames8/
-proj/keys8/
-proj/frames9/
-proj/keys9/
-proj/frames10/
-proj/keys10/

@@ -14,6 +14,7 @@ T = dict(lakin=0.0, maat=3.0, zeus=5.0, bilnar=8.0, wala=9.5, sakhra=11.5, watal
 _tj = os.path.join(HERE, "proj", "times_3.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["yadfa"] + 2.6
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 VOID = T["maat"] + 0.5                       # tear into the empty navy
 
 FEET = 1000

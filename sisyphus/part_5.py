@@ -17,6 +17,7 @@ T = dict(nahad=0.0, min_jadid=4.5, wafi=6.0, iqab=12.0, awda=15.0, ila=15.4, bid
 _tj = os.path.join(HERE, "proj", "times_5.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["aadat"] + 2.3
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 BLACK = T["aadat"] + 1.6                               # the rock fills the screen -> black
 STILL = (T["iqab"], T["awda"])
 

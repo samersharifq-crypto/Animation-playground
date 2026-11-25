@@ -20,6 +20,7 @@ T = dict(am=0.6, sawwar=2.0, jamia=2.8, kulumbiya=3.2, britaniya=3.7, sana=4.1,
 _tj = os.path.join(HERE, "proj", "times_11.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["intakasu"] + 2.6
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 CUT_CAM = T["ajsad"] - 0.4                              # the lab -> through the viewfinder
 CUT_SHADOW = T["baad"] - 0.2                            # the viewfinder -> the shadow on the wall
 DIM_T = T["khizy"]

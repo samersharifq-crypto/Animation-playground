@@ -15,6 +15,7 @@ T = dict(yaqul=0.5, arbain=3.5, wasittin=4.1, bilmia=4.7, daght=9.0, rabw=9.8, a
 _tj = os.path.join(HERE, "proj", "times_7.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["tadil"] + 3.2
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 
 BASE, FULL, BAR_W = 800, 640, 210                       # baseline y, px for 100 %, bar width
 COLS = [  # x, low %, high %, icon, icon height, start time

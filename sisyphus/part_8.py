@@ -16,6 +16,7 @@ _tj = os.path.join(HERE, "proj", "times_8.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 CUT1 = T["raghba"] - 0.3                                # Tantalus tears away just before «رغبة»
 DUR = T["yatadhakkar"] + 3.0
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 
 
 # ------------------------------------------------------------------ 1. «فيديو الدوبامين»: Tantalus in the corner, the fruit pulls away

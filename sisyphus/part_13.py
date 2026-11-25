@@ -18,6 +18,7 @@ T = dict(hunak=0.0, dars=0.6, harb=2.0, vietnam=2.5, adman=3.6, ishrin=5.0, bilm
 _tj = os.path.join(HERE, "proj", "times_13.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["taafi"] + 2.6
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 FLY0, FLY1 = T["awdatihim"] - 0.2, T["awdatihim"] + 2.2  # the camera follows the plane across the paper ocean
 DARK = T["taafi"] + 0.7                                 # tear into the night desert (into part 14)
 

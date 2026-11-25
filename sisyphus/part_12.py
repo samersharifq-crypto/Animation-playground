@@ -18,6 +18,7 @@ T = dict(farq=0.0, daqiq=0.6, yughayyir=1.6, shuur=3.0, bidhanb=3.5, faalt=4.6, 
 _tj = os.path.join(HERE, "proj", "times_12.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["haqiqatuk"] + 2.8
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 SPLIT0, SPLIT1 = 0.35, 0.95                             # the vertical tear runs top -> bottom
 FALL0 = T["la"] - 0.15                                  # «لا تجعل»: the shame half tears off and drops
 STILL = T["laysat"]                                     # from «وليست» everything holds still

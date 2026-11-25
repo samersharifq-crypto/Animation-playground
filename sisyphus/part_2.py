@@ -16,6 +16,7 @@ T = dict(quyyid=0.4, fatawaqqaf=1.5, almawt=2.1, ashaykh=3.5, wala_jarih=4.7, gh
 _tj = os.path.join(HERE, "proj", "times_2.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["almawt2"] + 2.6
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 
 FEET = 1000
 SIS_H = 700                                           # same Sisyphus as part 1

@@ -1,0 +1,16 @@
+part 1 done 441 frames
+part 2 done 388 frames
+part 3 done 383 frames
+part 4 done 344 frames
+part 5 done 309 frames
+part 6 done 348 frames
+part 7 done 375 frames
+part 8 done 359 frames
+part 10 done 361 frames
+part 11 done 357 frames
+part 12 done 341 frames
+part 13 done 404 frames
+part 14 done 422 frames
+part 15 done 335 frames
+part 16 done 413 frames
+ALL DONE

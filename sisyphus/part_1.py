@@ -18,6 +18,7 @@ _tj = os.path.join(HERE, "proj", "times_1.json")
 if os.path.exists(_tj):
     T.update(json.load(open(_tj)))
 DUR = T["ams"] + 1.9
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 
 FEET = 1000                       # ground line for both characters
 SIS_X, DEATH_X = 1250, 620

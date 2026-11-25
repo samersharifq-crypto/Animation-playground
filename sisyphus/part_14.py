@@ -19,6 +19,7 @@ T = dict(hadha=0.0, hadith=1.0, qabl=3.0, qarnan=4.2, rajul=5.0, qatala=6.8, tis
 _tj = os.path.join(HERE, "proj", "times_14.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["su"] + 2.6
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 TURN = T["ardu"] - 0.35                                 # the camera turns round to the dark village behind him
 
 

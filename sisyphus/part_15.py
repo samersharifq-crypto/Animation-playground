@@ -18,6 +18,7 @@ T = dict(fakharaj=0.4, muntasaf=3.6, tariq=4.0, atahu=4.6, mawt=5.1, lam=6.0, ya
 _tj = os.path.join(HERE, "proj", "times_15.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["suqut"] + 3.6                                  # the film's last seconds: hold on the warm light, then fade
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 
 
 def zoom_on(img, z, cx, cy):

@@ -14,6 +14,7 @@ T = dict(sijara=0.6, shasha=2.5, aada=4.5, intikasa=9.0, fashilna=12.5, duafa=14
 _tj = os.path.join(HERE, "proj", "times_6.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["tamaman"] + 2.4
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 LETGO = T["aada"] + 2.4
 LENS_T0 = T["tamaman"] + 0.5
 

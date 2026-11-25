@@ -23,6 +23,7 @@ T = dict(sizif=0.3, khiyar=2.0, hakamat=2.8, yaud=4.2, qaa=4.8, abad=5.3, amma=6
 _tj = os.path.join(HERE, "proj", "times_16.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["hikaya"] + 3.2
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 LOGO0 = T["basira"] - 0.2
 
 # ------------------------------------------------------------------ the new path up the hill (world = screen at zoom 1)

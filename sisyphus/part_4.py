@@ -14,6 +14,7 @@ T = dict(khutwa=0.0, thumma=1.6, araq=4.0, yaqtarib=9.0, ala=12.0, bud=12.4, dhi
 _tj = os.path.join(HERE, "proj", "times_4.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["wajhih"] + 2.8
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 FREEZE = (T["intasar"], T["aflatat"])        # «انتصر» … everything holds still
 
 # ------------------------------------------------------------------ the climb path on the hill (world = screen at zoom 1)

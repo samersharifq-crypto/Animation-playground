@@ -16,6 +16,7 @@ T = dict(alan=1.0, marlat=1.5, khata=5.0, yaquluna=7.0, sijara=9.0, shahrayn=10.
 _tj = os.path.join(HERE, "proj", "times_10.json")
 if os.path.exists(_tj): T.update(json.load(open(_tj)))
 DUR = T["wahida"] + 3.0
+DUR = max(DUR, T.get("_end", 0) + 1.2)                 # never cut the recorded voice
 CUT1 = T["khata"] - 0.5                                 # typewriter -> head and bubble
 FLASH0, FLASH1 = T["inhiyar"] - 0.2, T["inhiyar"] + 2.4  # Sisyphus lets the rock go
 
