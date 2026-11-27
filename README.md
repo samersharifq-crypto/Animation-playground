@@ -17,6 +17,22 @@ Controls: **space** plays or pauses, **m** turns the sound on or off (rain noise
 **Video:** `rainy-day/rainy-day.mp4` is a 66-second 1080p 30fps video with rain sound. To render it again, run
 `node rainy-day/tools/record.js` (needs Playwright and ffmpeg).
 
+## walking-prescription-3d/ — «وصفة المشي»
+
+A 40-second vertical (9:16) **3D** paper-cutout diorama built with three.js from Sophie's cut-out artwork. The paper pieces stand in a real 3D courtyard (sandstone arcades, columns, flagstones, a glowing gate), so the camera can follow, swing round and look up.
+
+1. **Same screens** (0–8s): at night, Sophie walks down a path lined with trees made of screens while notification cards circle her.
+2. **The prescription** (8–14s): a hand lowers an Rx note in front of her: *walk thirty minutes a day, without your phone, and look at the trees*. The pills tumble out of the picture.
+3. **She starts noticing** (14–25s): the camera tracks her from the side. One by one the screen-trees flip like cards into leafy trees, the cards flutter to the ground, seedlings pop up and the light turns warm.
+4. **Look up** (25–31s): the camera tilts up into the canopy as paper leaves fall.
+5. **The simplest prescription** (31–40s): the camera comes round in front of her and the scene loops.
+
+Sophie's picture changes with the camera angle (back view, side walk cycle, or standing). Every cut-out has a cream sticker edge and a paper shadow.
+
+- `index.html`: the live scene. Drag to look around, space = play/pause, click the bar to seek. Serve the folder over http (for example `python3 -m http.server`), because browsers won't load textures into WebGL from `file://`.
+- `walking-prescription-3d.mp4`: the rendered 1080×1920 24fps video (silent). To render it again, run `node walking-prescription-3d/tools/record.js`.
+- `tools/cutout.py <folder of source images>`: removes the white backgrounds, adds the sticker edges and splits the pills into separate sprites in `assets/`.
+
 ## beyond-the-familiar/ — «ما وراء المألوف»
 
 A 65-second vertical (9:16) motion graphic based on the Arabic reflection *Beyond the Familiar*. It's drawn live on canvas in a flat editorial illustration style: solid shapes, a plum/teal/terracotta/cream palette, hard-edged rim light, cinematic backlight, and a print pass that snaps every pixel to the palette and stipples the gradients. The routine scenes are cool monochrome, and colour returns as his attention opens.

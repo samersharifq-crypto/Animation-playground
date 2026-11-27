@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>وصفة المشي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lalezar&family=Aref+Ruqaa:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3ecdc; --ink: #1d2340; --red: #c8392b; --bar: rgba(20, 22, 34, .72); --bar-ink: #f3ecdc;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bar: rgba(10, 11, 18, .8); } }
+  :root[data-theme="dark"] { --bar: rgba(10, 11, 18, .8); }
+  html, body { margin: 0; height: 100%; background: #10131f; overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  #frame { position: relative; height: 100%; aspect-ratio: 9 / 16; max-width: 100%; overflow: hidden; background: #1a2036; touch-action: none; cursor: grab; }
+  #frame:active { cursor: grabbing; }
+  canvas#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* paper grain + vignette over the render */
+  #grain { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: multiply; opacity: .22; background-size: 256px; }
+  #vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 80% 70% at 50% 50%, transparent 55%, rgba(30, 20, 10, .38)); }
+  #fade { position: absolute; inset: 0; pointer-events: none; background: #f3ecdc; opacity: 0; }
+  /* torn-paper captions, word by word */
+  .label { position: absolute; left: 50%; transform: translateX(-50%) rotate(var(--r, -1.5deg)); top: 9%; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: .35em; font-family: 'Lalezar', system-ui, sans-serif; color: var(--ink);
+    font-size: calc(var(--fw) * .072); line-height: 1.1; white-space: nowrap; }
+  .label .strip { background: var(--paper); padding: .28em .6em .12em; box-shadow: 0 .12em .3em rgba(0, 0, 0, .28);
+    clip-path: polygon(0% 6%, 4% 0%, 9% 5%, 15% 1%, 22% 4%, 30% 0%, 38% 5%, 47% 1%, 55% 4%, 63% 0%, 71% 5%, 79% 1%, 87% 4%, 94% 0%, 100% 5%, 99% 50%, 100% 95%, 95% 100%, 88% 96%, 80% 100%, 72% 95%, 63% 100%, 55% 96%, 46% 100%, 38% 95%, 29% 100%, 21% 96%, 13% 100%, 6% 95%, 0% 100%, 1% 50%); }
+  .label .w { display: inline-block; opacity: 0; transform: translateY(.25em) scale(.9); transition: none; margin: 0 .12em; }
+  .label .w.on { opacity: 1; transform: none; }
+  .label .w.hl { color: var(--red); }
+  /* player bar */
+  #bar { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 10px; direction: ltr;
+    background: var(--bar); color: var(--bar-ink); border-radius: 12px; padding: 8px 12px; font: 13px/1 system-ui, sans-serif; backdrop-filter: blur(6px);
+    transition: opacity .4s; }
+  #frame:not(:hover) #bar.idle { opacity: 0; }
+  #bar button { background: none; border: 0; color: inherit; font-size: 18px; cursor: pointer; width: 28px; padding: 0; }
+  #track { flex: 1; height: 6px; background: rgba(255, 255, 255, .22); border-radius: 3px; position: relative; cursor: pointer; }
+  #fill { position: absolute; inset: 0 auto 0 0; background: #e9a23b; border-radius: 3px; width: 0; }
+  #hint { position: absolute; top: 12px; left: 0; right: 0; text-align: center; color: rgba(255, 255, 255, .75); font: 12px system-ui, sans-serif; pointer-events: none; transition: opacity 1s; }
+  #loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--paper); font: 20px 'Lalezar', system-ui; }
+  body.capture #bar, body.capture #hint { display: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="frame">
+    <canvas id="gl"></canvas>
+    <div id="grain"></div>
+    <div id="vig"></div>
+    <div id="labels"></div>
+    <div id="fade"></div>
+    <div id="hint">اسحب لتنظر حولك</div>
+    <div id="loading">…</div>
+    <div id="bar"><button id="play" aria-label="play/pause">❚❚</button><div id="track"><div id="fill"></div></div><span id="time">0:00</span></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const CAPTURE = location.search.includes('capture');
+if (CAPTURE) document.body.classList.add('capture');
+const TOTAL = 40;
+
+// ---------- helpers ----------
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ss = (a, b, t) => { const k = clamp((t - a) / (b - a)); return k * k * (3 - 2 * k); };
+const ease = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const R = rng(7);
+const back = k => { const c = 1.9; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
+
+// ---------- paper grain ----------
+{
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); const d = g.createImageData(256, 256); const r = rng(3);
+  for (let i = 0; i < d.data.length; i += 4) { const v = 200 + r() * 55; d.data[i] = v; d.data[i + 1] = v * .98; d.data[i + 2] = v * .93; d.data[i + 3] = 255; }
+  g.putImageData(d, 0, 0); document.getElementById('grain').style.backgroundImage = `url(${c.toDataURL()})`;
+}
+
+// ---------- renderer ----------
+const frame = document.getElementById('frame');
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gl'), antialias: true, preserveDrawingBuffer: CAPTURE });
+renderer.setPixelRatio(CAPTURE ? 1 : Math.min(2, devicePixelRatio));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x1a2036, 14, 62);
+const camera = new THREE.PerspectiveCamera(52, 9 / 16, .05, 300);
+function resize() { const w = frame.clientWidth, h = frame.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); frame.style.setProperty('--fw', w + 'px'); }
+addEventListener('resize', resize);
+
+// every material gets tinted by the "light" of the moment (cold night screen -> warm afternoon)
+const tinted = [];
+const NIGHT = new THREE.Color(.5, .58, .86), DAY = new THREE.Color(1, .97, .9);
+function mat(tex, opts = {}) {
+  const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: .02, side: THREE.DoubleSide, ...opts });
+  tinted.push(m); return m;
+}
+
+// ---------- textures ----------
+const loader = new THREE.TextureLoader();
+const load = n => new Promise(res => loader.load(`assets/${n}.webp`, t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t); }));
+const canvasTex = (w, h, draw, rep) => {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...rep); }
+  return t;
+};
+function speckle(g, x, y, w, h, n, cols, r) { for (let i = 0; i < n; i++) { g.fillStyle = cols[(r() * cols.length) | 0]; g.globalAlpha = .25 + r() * .5; g.fillRect(x + r() * w, y + r() * h, 1 + r() * 2.2, 1 + r() * 2.2); } g.globalAlpha = 1; }
+
+// sprite plane, anchored at bottom-centre, with a soft paper shadow behind it
+function cutout(tex, height, opts = {}) {
+  const img = tex.image, w = height * img.width / img.height;
+  const geo = new THREE.PlaneGeometry(w, height); geo.translate(0, height / 2, 0);
+  const g = new THREE.Group();
+  const front = new THREE.Mesh(geo, mat(tex, opts));
+  const sh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, color: 0x000000, transparent: true, opacity: .28, alphaTest: .02, depthWrite: false, side: THREE.DoubleSide }));
+  sh.position.set(.035 * height / 2, -.03 * height / 2, -.02); sh.renderOrder = -1;
+  g.add(sh, front); g.userData = { front, shadow: sh, w, h: height };
+  return g;
+}
+const blobTex = canvasTex(128, 128, (g) => { const r = g.createRadialGradient(64, 64, 4, 64, 64, 62); r.addColorStop(0, 'rgba(40,25,10,.55)'); r.addColorStop(1, 'rgba(40,25,10,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); });
+function blob(w, d) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.y = .015; return m; }
+
+// ---------- the courtyard (built from paper) ----------
+const Z0 = 16, Z1 = -78, LEN = Z0 - Z1;
+function buildCourtyard() {
+  const r = rng(11);
+  // floor: sand-gravel path in the middle, big flagstones under the arcades
+  const floorTex = canvasTex(1024, 1024, (g, W, H) => {
+    g.fillStyle = '#cdb994'; g.fillRect(0, 0, W, H);
+    const px = W / 20; // 20 world units across
+    for (let row = 0; row < 12; row++) for (const side of [-1, 1]) {
+      let x = 3.1;
+      while (x < 10) { const w = 1.2 + r() * 1.4; const x0 = side > 0 ? 10 + x : 10 - x - w; const tone = 186 + r() * 30;
+        g.fillStyle = `rgb(${tone},${tone - 14},${tone - 38})`; g.fillRect(x0 * px + 2, row * H / 12 + 2, w * px - 4, H / 12 - 4); x += w; }
+    }
+    g.fillStyle = '#d6c4a0'; g.fillRect(7 * px, 0, 6 * px, H);
+    speckle(g, 7 * px, 0, 6 * px, H, 26000, ['#a8936c', '#efe2c4', '#b9a37c', '#8d7a58'], r);
+    speckle(g, 0, 0, W, H, 9000, ['#9c8662', '#e6d6b4'], r);
+    g.strokeStyle = 'rgba(120,96,62,.55)'; g.lineWidth = 3; g.beginPath(); g.moveTo(7 * px, 0); g.lineTo(7 * px, H); g.moveTo(13 * px, 0); g.lineTo(13 * px, H); g.stroke();
+  }, [1, LEN / 20]);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, LEN), mat(floorTex, { transparent: false }));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0, (Z0 + Z1) / 2); scene.add(floor);
+
+  // one arcade bay = 6 units wide x 7 high: sandstone, arch cut out, column with capital
+  const bay = canvasTex(384, 448, (g, W, H) => {
+    g.fillStyle = '#c9a676'; g.fillRect(0, 0, W, H);
+    // blocks
+    for (let y = 0; y < H; y += 26) for (let x = (y / 26 % 2) * 30; x < W; x += 60) { const t = 190 + r() * 25; g.fillStyle = `rgb(${t},${t - 30},${t - 78})`; g.fillRect(x + 2, y + 2, 56, 22); }
+    speckle(g, 0, 0, W, H, 5000, ['#8c6c45', '#ecd3a8'], r);
+    // arch opening (transparent), spring line at 2/3 height of the opening
+    const cx = W / 2, aw = W * .36, top = H * .34, spring = H * .52;
+    g.globalCompositeOperation = 'destination-out';
+    g.beginPath(); g.moveTo(cx - aw, H); g.lineTo(cx - aw, spring); g.arc(cx, spring, aw, Math.PI, 0); g.lineTo(cx + aw, H); g.fill();
+    g.globalCompositeOperation = 'source-over';
+    // voussoirs
+    g.strokeStyle = '#b48d5d'; g.lineWidth = 18; g.beginPath(); g.arc(cx, spring, aw + 9, Math.PI, 0); g.stroke();
+    g.strokeStyle = 'rgba(80,55,30,.45)'; g.lineWidth = 2; for (let a = 0; a <= 12; a++) { const an = Math.PI + a * Math.PI / 12; g.beginPath(); g.moveTo(cx + Math.cos(an) * aw, spring + Math.sin(an) * aw); g.lineTo(cx + Math.cos(an) * (aw + 18), spring + Math.sin(an) * (aw + 18)); g.stroke(); }
+    // half-columns at both edges (they meet the neighbouring bay)
+    for (const x of [0, W]) {
+      g.fillStyle = '#d8bd8e'; g.fillRect(x - 30, spring, 60, H - spring);
+      g.fillStyle = 'rgba(90,60,30,.25)'; g.fillRect(x + 10, spring, 20, H - spring);
+      g.fillStyle = '#c4a271'; g.fillRect(x - 40, spring - 6, 80, 22); g.fillRect(x - 36, H - 26, 72, 26);
+    }
+    // cornice
+    g.fillStyle = '#a97f4f'; g.fillRect(0, 0, W, 16); g.fillStyle = '#7d5a35'; g.fillRect(0, 16, W, 5);
+  }, [LEN / 6, 1]);
+  const backTex = canvasTex(384, 448, (g, W, H) => {
+    g.fillStyle = '#7a5f45'; g.fillRect(0, 0, W, H);
+    for (let y = 0; y < H; y += 26) for (let x = (y / 26 % 2) * 30; x < W; x += 60) { const t = 112 + r() * 18; g.fillStyle = `rgb(${t},${t - 22},${t - 48})`; g.fillRect(x + 2, y + 2, 56, 22); }
+    g.fillStyle = '#3b2c22'; g.fillRect(W * .36, H * .5, W * .28, H * .5); // doorway
+    g.fillStyle = '#2a2a36'; g.fillRect(W * .4, H * .18, W * .2, H * .2); g.fillStyle = '#6b5d4c'; g.fillRect(W * .495, H * .18, W * .01, H * .2);
+  }, [LEN / 6, 1]);
+  const roofTex = canvasTex(256, 128, (g, W, H) => {
+    g.fillStyle = '#a5472d'; g.fillRect(0, 0, W, H);
+    for (let x = 0; x < W; x += 16) { g.fillStyle = x % 32 ? '#c35a38' : '#b84f31'; g.fillRect(x, 0, 12, H); g.fillStyle = 'rgba(60,20,10,.35)'; g.fillRect(x + 12, 0, 4, H); }
+    for (let y = 0; y < H; y += 22) { g.fillStyle = 'rgba(60,20,10,.3)'; g.fillRect(0, y, W, 3); }
+  }, [LEN / 3, 1]);
+  const ceilTex = canvasTex(64, 64, (g) => { g.fillStyle = '#5a4030'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#4a3326'; for (let x = 0; x < 64; x += 16) g.fillRect(x, 0, 6, 64); }, [LEN / 1.2, 1]);
+
+  for (const s of [-1, 1]) {
+    const front = new THREE.Mesh(new THREE.PlaneGeometry(LEN, 7), mat(bay)); front.rotation.y = -s * Math.PI / 2; front.position.set(s * 6.5, 3.5, (Z0 + Z1) / 2); scene.add(front);
+    const thick = new THREE.Mesh(new THREE.PlaneGeometry(LEN, 7), mat(bay, { color: 0x9a7a55 })); thick.rotation.y = -s * Math.PI / 2; thick.position.set(s * 6.85, 3.5, (Z0 + Z1) / 2); scene.add(thick);
+    const backW = new THREE.Mesh(new THREE.PlaneGeometry(LEN, 7.5), mat(backTex, { transparent: false })); backW.rotation.y = -s * Math.PI / 2; backW.position.set(s * 9.5, 3.75, (Z0 + Z1) / 2); scene.add(backW);
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(3.1, LEN), mat(ceilTex)); ceil.rotation.x = Math.PI / 2; ceil.position.set(s * 8.1, 6.6, (Z0 + Z1) / 2); ceilTex.repeat.set(1, LEN / 1.2); scene.add(ceil);
+    const roof = new THREE.Mesh(new THREE.PlaneGeometry(LEN, 4), mat(roofTex)); roof.position.set(s * 8.2, 7.6, (Z0 + Z1) / 2); roof.rotation.order = 'YXZ'; roof.rotation.y = -s * Math.PI / 2; roof.rotation.x = -.5; scene.add(roof);
+    // real 3D columns in front of the painted ones, so the arcade has depth when the camera swings
+    const colGeo = new THREE.CylinderGeometry(.28, .32, 3.4, 14);
+    const colTex = canvasTex(64, 128, (g) => { const gr = g.createLinearGradient(0, 0, 64, 0); gr.addColorStop(0, '#a8875c'); gr.addColorStop(.4, '#e2c999'); gr.addColorStop(1, '#8e6f48'); g.fillStyle = gr; g.fillRect(0, 0, 64, 128); speckle(g, 0, 0, 64, 128, 300, ['#7a5d3a', '#f0dcb4'], r); });
+    for (let z = Z0; z > Z1; z -= 6) {
+      const c = new THREE.Mesh(colGeo, mat(colTex, { transparent: false, side: THREE.FrontSide })); c.position.set(s * 6.3, 1.7, z); scene.add(c);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(.8, .3, .8), mat(colTex, { transparent: false })); cap.position.set(s * 6.3, 3.5, z); scene.add(cap);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(.75, .22, .75), mat(colTex, { transparent: false })); base.position.set(s * 6.3, .11, z); scene.add(base);
+    }
+  }
+  // the gate at the end of the walk, glowing
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), new THREE.MeshBasicMaterial({ color: 0xfff1d6, fog: false })); glow.position.set(0, 6, Z1 - 2); scene.add(glow);
+  const gate = canvasTex(512, 384, (g, W, H) => {
+    g.fillStyle = '#c29f70'; g.fillRect(0, 0, W, H);
+    for (let y = 0; y < H; y += 20) for (let x = (y / 20 % 2) * 24; x < W; x += 48) { const t = 188 + r() * 25; g.fillStyle = `rgb(${t},${t - 30},${t - 78})`; g.fillRect(x + 2, y + 2, 44, 16); }
+    g.fillStyle = '#b5512f'; g.fillRect(0, 0, W, 40);
+    g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.moveTo(W * .38, H); g.lineTo(W * .38, H * .55); g.arc(W / 2, H * .55, W * .12, Math.PI, 0); g.lineTo(W * .62, H); g.fill();
+  });
+  const gw = new THREE.Mesh(new THREE.PlaneGeometry(20, 15), mat(gate)); gw.position.set(0, 7.5, Z1); scene.add(gw);
+}
+
+// ---------- procedural paper pieces ----------
+function cardTex(kind, r) {
+  return canvasTex(160, 110, (g, W, H) => {
+    const cols = ['#1f2c4a', '#2b3d63', '#16213a', '#34507a'];
+    g.fillStyle = cols[(r() * 4) | 0]; g.beginPath(); g.moveTo(4, 6); for (let x = 4; x <= W - 4; x += 12) g.lineTo(x, 3 + r() * 6); g.lineTo(W - 4, H - 6); for (let x = W - 4; x >= 4; x -= 12) g.lineTo(x, H - 3 - r() * 6); g.closePath(); g.fill();
+    g.fillStyle = '#9fd3e6'; g.strokeStyle = '#9fd3e6'; g.lineWidth = 6; g.lineCap = 'round';
+    const cx = W / 2, cy = H / 2;
+    if (kind === 0) { g.beginPath(); g.moveTo(cx - 14, cy - 20); g.lineTo(cx + 20, cy); g.lineTo(cx - 14, cy + 20); g.fill(); g.fillRect(16, H - 18, W - 32, 4); }
+    if (kind === 1) { g.fillStyle = '#e56b7a'; g.beginPath(); g.moveTo(cx, cy + 22); g.bezierCurveTo(cx - 40, cy - 4, cx - 18, cy - 34, cx, cy - 12); g.bezierCurveTo(cx + 18, cy - 34, cx + 40, cy - 4, cx, cy + 22); g.fill(); }
+    if (kind === 2) { g.beginPath(); g.roundRect(cx - 46, cy - 26, 92, 42, 10); g.fill(); g.beginPath(); g.moveTo(cx - 20, cy + 14); g.lineTo(cx - 28, cy + 30); g.lineTo(cx - 6, cy + 14); g.fill(); }
+    if (kind === 3) { for (let i = -1; i <= 1; i++) { g.beginPath(); g.arc(cx + i * 26, cy, 9, 0, 7); g.fill(); } }
+    if (kind === 4) { for (let i = -6; i <= 6; i++) { const h = 6 + Math.abs(Math.sin(i * 1.7)) * 30; g.beginPath(); g.moveTo(cx + i * 9, cy - h / 2); g.lineTo(cx + i * 9, cy + h / 2); g.stroke(); } }
+    if (kind === 5) { g.beginPath(); g.arc(cx, cy, 22, -1.2, 4); g.stroke(); }
+  });
+}
+function leafTex(r) {
+  return canvasTex(64, 96, (g, W, H) => {
+    const c = ['#5f8a4a', '#7ea35a', '#3f6e46', '#a8b85c', '#d9c25a', '#93ab61'][(r() * 6) | 0];
+    g.fillStyle = c; g.beginPath(); g.moveTo(W / 2, 4); g.bezierCurveTo(W + 6, H * .35, W * .8, H * .8, W / 2, H - 4); g.bezierCurveTo(W * .2, H * .8, -6, H * .35, W / 2, 4); g.fill();
+    g.strokeStyle = 'rgba(255,255,230,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(W / 2, 10); g.lineTo(W / 2, H - 8); g.stroke();
+  });
+}
+
+// ---------- captions ----------
+const LABELS = [
+  { a: .8, b: 7.4, lines: [['كل', 'يوم'], ['نفس', '*الشاشات']], r: -2 },
+  { a: 8.6, b: 13.6, lines: [['الوصفة:'], ['*لا', '*دواء']], r: 1.5 },
+  { a: 15, b: 19.2, lines: [['امشِ…'], ['بلا', '*جوال']], r: -1.5 },
+  { a: 19.6, b: 24.6, lines: [['بدأتُ', 'ألاحظ'], ['*الأشجار']], r: 1.8 },
+  { a: 25.6, b: 30.6, lines: [['انظر'], ['*للأعلى']], r: -1 },
+  { a: 32, b: 39, lines: [['أبسط', 'وصفة'], ['خطوة…', '*وشجرة']], r: 1.2 },
+];
+const labelsEl = document.getElementById('labels');
+for (const L of LABELS) {
+  const el = document.createElement('div'); el.className = 'label'; el.style.setProperty('--r', L.r + 'deg');
+  L.words = [];
+  for (const line of L.lines) { const s = document.createElement('div'); s.className = 'strip';
+    for (const w of line) { const sp = document.createElement('span'); sp.className = 'w' + (w[0] === '*' ? ' hl' : ''); sp.textContent = w.replace('*', ''); s.appendChild(sp); L.words.push(sp); }
+    el.appendChild(s); }
+  labelsEl.appendChild(el); L.el = el;
+}
+function updateLabels(t) {
+  for (const L of LABELS) {
+    const vis = t >= L.a && t <= L.b; L.el.style.display = vis ? '' : 'none'; if (!vis) continue;
+    const out = ss(L.b - .35, L.b, t); L.el.style.opacity = 1 - out;
+    L.words.forEach((w, i) => w.classList.toggle('on', t >= L.a + i * .32));
+  }
+}
+
+// ---------- the story ----------
+let girl, girlTex, trees = [], cards = [], leaves = [], seeds = [], pills = [], rx, hand, canopy, girlBlob;
+const TREE_Z = [2, -6, -14, -22, -30, -38, -46, -54];
+
+// where Sophie is (z) and whether she is walking
+function girlZ(t) {
+  if (t < 8) return lerp(5, -6, ease(t / 8) * .15 + t / 8 * .85);
+  if (t < 14.2) return -6 - ss(8, 9, t) * .4;
+  if (t < 30) return -6.4 - (t - 14.2) / (30 - 14.2) * 24;
+  return -30.4 - ss(30, 32, t) * .8;
+}
+const walking = t => (t < 8.4) || (t > 14.2 && t < 31.5);
+
+// camera keys: offsets from Sophie
+const KEYS = [
+  [0, [0, 2.3, 5.8], [0, 1.6, -5]],
+  [7.2, [0, 2.1, 5.2], [0, 1.6, -5]],
+  [9.2, [0, 1.8, 4.6], [0, 2.0, 0]],
+  [13.8, [0, 1.8, 4.4], [0, 2.0, 0]],
+  [16.6, [3.0, 1.5, 2.4], [-.7, 1.5, -1.3]],
+  [24, [2.7, 1.7, 2.0], [-.7, 1.6, -1.6]],
+  [27, [.9, .9, 2.6], [0, 7.5, -4.5]],
+  [30.2, [.7, .9, 2.2], [0, 8.5, -4]],
+  [33.4, [-1.7, 1.8, -4.6], [0, 1.5, 0]],
+  [40, [-3.1, 2.4, -6.2], [0, 1.6, 0]],
+];
+const _v = new THREE.Vector3();
+function cameraAt(t, gz) {
+  let i = 0; while (i < KEYS.length - 2 && t > KEYS[i + 1][0]) i++;
+  const [t0, p0, l0] = KEYS[i], [t1, p1, l1] = KEYS[i + 1];
+  const k = ease(clamp((t - t0) / (t1 - t0)));
+  const p = p0.map((v, j) => lerp(v, p1[j], k)), l = l0.map((v, j) => lerp(v, l1[j], k));
+  return { pos: new THREE.Vector3(p[0], p[1], gz + p[2]), look: new THREE.Vector3(l[0], l[1], gz + l[2]) };
+}
+
+// when each tree turns from screens to leaves
+const flipTime = (z, side) => 15.4 + (2 - z) / 56 * 7.5 + (side > 0 ? .3 : 0);
+
+async function build() {
+  const names = ['girl-back', 'girl-walk-a', 'girl-walk-b', 'girl-stand', 'tree-digital', 'tree-green', 'seedling', 'rx', 'hand', 'canopy', 'pill-0', 'pill-1', 'pill-2'];
+  const tex = Object.fromEntries(await Promise.all(names.map(async n => [n, await load(n)])));
+  await document.fonts.load('700 40px "Aref Ruqaa"').catch(() => {}); await document.fonts.load('40px Lalezar').catch(() => {});
+  buildCourtyard();
+
+  // Sophie: one cut-out that swaps its picture depending on where the camera stands
+  girlTex = tex; girl = cutout(tex['girl-back'], 1.7); scene.add(girl);
+  girlBlob = blob(1.1, .5); scene.add(girlBlob);
+
+  for (const z of TREE_Z) for (const s of [-1, 1]) {
+    const grp = new THREE.Group();
+    const dig = cutout(tex['tree-digital'], 6.6), grn = cutout(tex['tree-green'], 6.6);
+    grp.add(dig, grn); grp.position.set(s * (3.9 + (R() - .5) * .3), 0, z + (R() - .5) * 1.2);
+    const b = blob(3.2, 1.4); b.position.set(grp.position.x, .016, grp.position.z); scene.add(b);
+    scene.add(grp); trees.push({ grp, dig, grn, side: s, z, ft: flipTime(z, s) });
+  }
+  // notification cards swirling round her
+  for (let i = 0; i < 40; i++) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(.5, .34), mat(cardTex(i % 6, R)));
+    m.userData = { r: 1.3 + R() * 2.6, h: .6 + R() * 3.6, sp: (.25 + R() * .35) * (R() < .5 ? -1 : 1), ph: R() * 7, rel: 14.4 + R() * 3, spin: R() * 6, dx: (R() - .5) * 2 };
+    scene.add(m); cards.push(m);
+  }
+  for (let i = 0; i < 90; i++) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(.16, .24), mat(leafTex(R)));
+    m.userData = { x: (R() - .5) * 11, z: -2 - R() * 40, top: 5 + R() * 6, sp: .5 + R() * .5, ph: R() * 20, sw: R() * 6, start: 16 + R() * 8 };
+    scene.add(m); leaves.push(m);
+  }
+  for (let i = 0; i < 16; i++) {
+    const s = i % 2 ? 1 : -1, z = -4 - i * 2.4 - R(); const sd = cutout(tex['seedling'], .5 + R() * .25);
+    sd.position.set(s * (1.9 + R() * .9), 0, z); sd.userData.t = Math.max(15, 14.2 + (-6.4 - z) / 24 * 15.8 - .3); scene.add(sd); seeds.push(sd);
+  }
+  // the prescription, with Sophie's "medicine" written on it, pinched by a hand
+  const rxImg = tex['rx'].image;
+  const rxTex = canvasTex(rxImg.width, rxImg.height, (g, W, H) => {
+    g.drawImage(rxImg, 0, 0); g.fillStyle = '#23337a'; g.textAlign = 'right'; g.direction = 'rtl';
+    g.font = `700 ${W * .085}px "Aref Ruqaa"`;
+    const lines = ['امشِ ثلاثين دقيقة', 'كل يوم', 'بلا جوال', 'وانظر إلى الأشجار'];
+    lines.forEach((l, i) => g.fillText(l, W * .86, H * (.3 + i * .125)));
+    g.strokeStyle = '#23337a'; g.lineWidth = 4; g.beginPath(); g.moveTo(W * .2, H * .85); g.bezierCurveTo(W * .3, H * .78, W * .38, H * .9, W * .5, H * .82); g.stroke();
+  });
+  rx = cutout(rxTex, 1.25); scene.add(rx);
+  hand = cutout(tex['hand'], 1.3); scene.add(hand);
+  for (let i = 0; i < 9; i++) {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat(tex['pill-' + (i % 3)]));
+    const img = tex['pill-' + (i % 3)].image; const s = .2 + R() * .06; p.scale.set(s * img.width / img.height, s, 1);
+    p.userData = { vx: (R() - .5) * 2.4, vz: (R() - .2) * 1.4, vy: 1 + R() * 1.6, t0: 10.4 + i * .18, ax: new THREE.Vector3(R() - .5, R() - .5, R() - .5).normalize(), w: 6 + R() * 6, x0: (R() - .5) * .6 };
+    scene.add(p); pills.push(p);
+  }
+  // the canopy she sees when she finally looks up
+  const ci = tex['canopy'].image;
+  canopy = new THREE.Mesh(new THREE.PlaneGeometry(26, 26 * ci.height / ci.width), mat(tex['canopy'], { transparent: true, opacity: 0, alphaTest: 0, depthWrite: false }));
+  canopy.rotation.x = Math.PI / 2; canopy.rotation.z = Math.PI; canopy.position.set(0, 9.5, -32); scene.add(canopy);
+}
+
+// ---------- per-frame ----------
+const yaw = { x: 0, y: 0, tx: 0, ty: 0 };
+const fadeEl = document.getElementById('fade');
+const tmpQ = new THREE.Quaternion();
+function billboard(obj, camPos, extra = 0) { obj.rotation.set(0, Math.atan2(camPos.x - obj.position.x, camPos.z - obj.position.z) + extra, 0); }
+
+function render(t) {
+  const gz = girlZ(t);
+  // light: cold screen-blue until the prescription, then warming as the trees turn
+  const warm = ss(14.5, 26, t);
+  const tint = NIGHT.clone().lerp(DAY, warm);
+  for (const m of tinted) if (!m.userData.keep) m.color.copy(tint);
+  const fogC = new THREE.Color(0x1a2036).lerp(new THREE.Color(0xeadcc0), warm);
+  scene.fog.color.copy(fogC); scene.background = fogC;
+  scene.fog.far = lerp(48, 80, warm);
+
+  const cam = cameraAt(t, gz);
+  // user drag looks around a little
+  yaw.x += (yaw.tx - yaw.x) * .08; yaw.y += (yaw.ty - yaw.y) * .08;
+  const off = cam.pos.clone().sub(cam.look); const sph = new THREE.Spherical().setFromVector3(off);
+  sph.theta += yaw.x; sph.phi = clamp(sph.phi + yaw.y, .15, 3); off.setFromSpherical(sph);
+  camera.position.copy(cam.look).add(off); camera.lookAt(cam.look);
+
+  // Sophie
+  const walk = walking(t);
+  const step = t * 1.9; const bob = walk ? Math.abs(Math.sin(step * Math.PI)) * .045 : 0;
+  girl.position.set(walk ? Math.sin(step * Math.PI) * .03 : 0, bob, gz);
+  const ang = Math.atan2(camera.position.x - girl.position.x, camera.position.z - girl.position.z); // 0 = behind her
+  const a = Math.abs(ang);
+  let key = 'girl-back';
+  if (a > .75 && a < 2.4) key = walk ? (Math.floor(t * 6) % 2 ? 'girl-walk-a' : 'girl-walk-b') : 'girl-stand';
+  else if (a >= 2.4) key = 'girl-stand';
+  if (t > 30.5 && t < 31.5 && key === 'girl-back') key = 'girl-back';
+  const gt = girlTex[key];
+  if (girl.userData.front.material.map !== gt) {
+    girl.userData.front.material.map = gt; girl.userData.shadow.material.map = gt;
+    const w = 1.7 * gt.image.width / gt.image.height; girl.userData.front.scale.x = girl.userData.shadow.scale.x = w / girl.userData.w;
+  }
+  // side views are drawn walking to the right: mirror when the camera is on her other side
+  const mirror = (key !== 'girl-back' && ang < 0) ? -1 : 1;
+  billboard(girl, camera.position); girl.scale.set(mirror, 1, 1);
+  girl.rotation.z = walk ? Math.sin(step * Math.PI) * .02 : 0;
+  girlBlob.position.set(0, .015, gz);
+
+  // trees: paper cards that flip from screens to leaves as she passes
+  for (const tr of trees) {
+    const k = clamp((t - tr.ft) / .9);
+    const flip = k < .5 ? ease(k * 2) * Math.PI / 2 : (1 - ease((k - .5) * 2)) * Math.PI / 2;
+    billboard(tr.grp, camera.position, flip * (tr.side > 0 ? 1 : -1));
+    tr.dig.visible = k < .5; tr.grn.visible = k >= .5;
+    const pop = k >= .5 ? 1 + Math.sin(clamp((k - .5) * 2) * Math.PI) * .06 : 1;
+    tr.grp.scale.set(1, pop, 1);
+    // gentle sway of the paper
+    tr.grp.rotation.z = Math.sin(t * .8 + tr.z) * .012;
+  }
+  // cards: orbit while she's hooked, flutter down and fade once she walks free
+  for (const c of cards) {
+    const u = c.userData; const tr = Math.min(t, u.rel);
+    const a0 = u.ph + tr * u.sp; const cz = girlZ(tr);
+    let x = Math.cos(a0) * u.r, y = u.h + Math.sin(tr * 1.3 + u.ph) * .15, z = cz - .8 + Math.sin(a0) * u.r * .7;
+    let op = ss(0, 1.2, t) * ss(1.6, 3, Math.hypot(x - camera.position.x, z - camera.position.z));
+    if (t > u.rel) { const d = t - u.rel; y = Math.max(.02, y - d * d * .55 - d * .2); x += Math.sin(d * 3 + u.ph) * .3 + u.dx * d * .3; op *= 1 - ss(1.4, 3.2, d); }
+    c.position.set(x, y, z); billboard(c, camera.position, t > u.rel ? (t - u.rel) * u.spin : Math.sin(t + u.ph) * .3);
+    c.material.opacity = op; c.visible = op > .01;
+  }
+  // leaves
+  for (const l of leaves) {
+    const u = l.userData; const span = u.top; const y = u.top - ((t * u.sp + u.ph) % span);
+    l.position.set(u.x + Math.sin(t * 1.1 + u.sw) * .5, y, u.z + Math.cos(t * .7 + u.sw) * .3);
+    l.rotation.set(t * 1.3 + u.sw, t * .9 + u.ph, Math.sin(t * 2 + u.sw) * .8);
+    const op = ss(u.start, u.start + 1.5, t) * ss(0, .6, y); l.material.opacity = op; l.visible = op > .01;
+  }
+  for (const s of seeds) { const k = clamp((t - s.userData.t) / .7); s.visible = k > 0; s.scale.setScalar(Math.max(.001, back(k))); billboard(s, camera.position); }
+
+  // prescription: drops in front of her, held by the hand, then lifts away
+  const down = ease(ss(8.4, 10, t)), up = ease(ss(13.4, 14.6, t));
+  const ry = lerp(6.5, 1.15, down) + up * 6 + Math.sin(t * 1.4) * .03;
+  rx.visible = hand.visible = t > 8 && t < 15;
+  rx.position.set(.05, ry, gz + 2.3); billboard(rx, camera.position); rx.rotation.z = Math.sin(t * 1.1) * .04 + .03;
+  hand.position.copy(rx.position).add(new THREE.Vector3(.12, .95, -.01)); billboard(hand, camera.position); hand.rotation.z = rx.rotation.z;
+  // pills: tossed out of the picture (no medicine) and left lying on the path
+  for (const p of pills) {
+    const u = p.userData, d = t - u.t0; p.visible = d > 0 && t < 24;
+    if (d <= 0) continue;
+    const yy = 1.6 + u.vy * d - 4.9 * d * d; const land = yy <= .03;
+    const tl = land ? (u.vy + Math.sqrt(u.vy * u.vy + 4 * 4.9 * 1.57)) / 9.8 : d;
+    p.position.set(u.x0 + u.vx * tl, land ? .03 : yy, gz + 2.0 + u.vz * tl);
+    if (land) p.rotation.set(-Math.PI / 2, 0, u.w);
+    else { tmpQ.setFromAxisAngle(u.ax, d * u.w); p.quaternion.copy(tmpQ); }
+    p.material.opacity = 1 - ss(20, 23, t);
+  }
+  canopy.material.opacity = ss(24.5, 27.5, t) * (1 - ss(32, 34, t));
+  canopy.position.z = gz - 6;
+
+  // loop fade
+  fadeEl.style.opacity = Math.max(1 - ss(0, .8, t), ss(TOTAL - .9, TOTAL, t));
+  updateLabels(t);
+  renderer.render(scene, camera);
+}
+
+// ---------- playback ----------
+let playing = !CAPTURE, clock = 0, last = performance.now();
+const playBtn = document.getElementById('play'), fill = document.getElementById('fill'), timeEl = document.getElementById('time'), bar = document.getElementById('bar');
+function setPlaying(p) { playing = p; playBtn.textContent = p ? '❚❚' : '▶'; last = performance.now(); }
+playBtn.onclick = () => setPlaying(!playing);
+addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); } });
+const track = document.getElementById('track');
+track.onpointerdown = e => { const r = track.getBoundingClientRect(); clock = clamp((e.clientX - r.left) / r.width) * TOTAL; e.stopPropagation(); };
+let drag = null, idleT;
+frame.addEventListener('pointerdown', e => { if (e.target.closest('#bar')) return; drag = { x: e.clientX, y: e.clientY, tx: yaw.tx, ty: yaw.ty }; document.getElementById('hint').style.opacity = 0; });
+addEventListener('pointermove', e => { bar.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => bar.classList.add('idle'), 2500);
+  if (!drag) return; yaw.tx = clamp(drag.tx - (e.clientX - drag.x) * .006, -1.4, 1.4); yaw.ty = clamp(drag.ty - (e.clientY - drag.y) * .004, -.6, .6); });
+addEventListener('pointerup', () => { if (drag) { drag = null; yaw.tx = 0; yaw.ty = 0; } });
+
+function loop(now) {
+  if (playing) { clock += (now - last) / 1000; if (clock >= TOTAL) clock -= TOTAL; }
+  last = now;
+  fill.style.width = (clock / TOTAL * 100) + '%';
+  timeEl.textContent = `${Math.floor(clock / 60)}:${String(Math.floor(clock % 60)).padStart(2, '0')}`;
+  render(clock);
+  requestAnimationFrame(loop);
+}
+
+resize();
+await build();
+document.getElementById('loading').remove();
+setTimeout(() => document.getElementById('hint').style.opacity = 0, 4000);
+bar.classList.add('idle');
+if (CAPTURE) {
+  window.__TOTAL = TOTAL;
+  window.__seek = t => { yaw.x = yaw.y = 0; render(t); };
+  window.__ready = true;
+} else requestAnimationFrame(loop);
+</script>
+</body>
+</html>
