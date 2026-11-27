@@ -17,6 +17,23 @@ Controls: **space** plays or pauses, **m** turns the sound on or off (rain noise
 **Video:** `rainy-day/rainy-day.mp4` is a 66-second 1080p 30fps video with rain sound. To render it again, run
 `node rainy-day/tools/record.js` (needs Playwright and ffmpeg).
 
+## all-eyes-3d/ — «كل العيون»
+
+A 40-second vertical (9:16) 3D short. A student is about to give his first presentation, and in his head every seat in the lecture hall fills with staring eyes.
+The hall is real geometry: tiered rows with desks and 336 folding seats, arched windows that glow, coffered ceiling with pendant lamps, a wooden stage, a projection screen and a modelled wooden podium, lit by sunlight with soft shadows. The boy, his close-ups, the eyes and the answer sheets are the cut-out renders.
+
+1. **Waiting** (0–6s): the camera glides down the empty hall to him, sitting at the side of the stage.
+2. **The walk** (6–11s): he walks to the podium.
+3. **All eyes** (11–16s): his point of view. The lights die, a cold spotlight hits him, and eyes open on every seat, all looking at him.
+4. **Panic** (16–22s): a shaking close-up on his face while his notes fly off the podium.
+5. **Wanting to disappear** (22–27s): seen from high above, he sits hugging his knees while the eyes close in around him.
+6. **Breathe** (27–32s): the eyes blink shut one by one and vanish, the papers settle and the daylight comes back. *The eyes were in your head.*
+7. **He starts to speak** (32–40s): back at the podium, the camera pushes in to his smile.
+
+- `index.html`: the live scene. Drag to look around, space = play/pause, click the bar to seek. Serve the folder over http (for example `python3 -m http.server`).
+- `all-eyes-3d.mp4`: the rendered 1080×1920 24fps video (silent). To render it again, run `node all-eyes-3d/tools/record.js`.
+- `tools/cutout.py <folder of source images>`: removes the white backgrounds, splits the eye sheet into 12 eyes and crops the answer sheet.
+
 ## walking-prescription-3d/ — «وصفة المشي»
 
 A 40-second vertical (9:16) **3D** paper-cutout diorama built with three.js from Sophie's cut-out artwork. The paper pieces stand in a real 3D courtyard (sandstone arcades, columns, flagstones, a glowing gate), so the camera can follow, swing round and look up.
