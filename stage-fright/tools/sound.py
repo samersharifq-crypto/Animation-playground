@@ -59,7 +59,7 @@ for i, t in enumerate(np.arange(3.3, 7.4, 0.5)):
     step_snd(t, 0.55 * (1 - i / 11)); step_snd(t + 0.18, 0.12 * (1 - i / 11))   # corridor echo
 
 # tears
-for t in (2.95, 7.45, 16.95, 19.55, 22.35, 24.95, 27.45): rip(t)
+for t in (2.95, 7.45, 16.95, 19.55, 22.35, 24.95, 29.35, 32.45): rip(t)
 
 # 3 door: knee bounce taps, creak, rush of light
 for t in np.arange(7.7, 9.6, 0.25): pop(t, 0.15)
@@ -95,6 +95,15 @@ for k in range(9): pop(23.3 + k * 0.045 + rng.uniform(0, 0.02), 0.18, pan=-0.5)
 for t, fq in ((25.2, 220.0), (25.9, 261.6), (26.6, 329.6), (27.3, 392.0)):
     add(tone(fq, 2.5, 0.01, 1.1) * 0.22, t, pan=0.2); add(tone(fq * 2, 2.0, 0.01, 0.6) * 0.06, t, pan=-0.2)
 
+# 8 pull back: a soft paper slide
+n = int(2.0 * SR); add(band(noise(2.0), 200, 2500) * np.sin(np.linspace(0, np.pi, n)) ** 2 * 0.12, 27.25)
+# 9 new day: lighter steps, birds outside, a warm chord
+for i, t in enumerate(np.arange(29.7, 32.6, 0.5)): step_snd(t, 0.35)
+for t in (29.9, 30.5, 30.62, 31.4, 31.52, 32.1):
+    n = int(0.12 * SR); tt = np.arange(n) / SR
+    add(np.sin(2 * np.pi * (3200 + 1400 * np.sin(tt * 60)) * tt) * env(n, 0.005, 0.05) * 0.08, t, pan=-0.6)
+for t, fq in ((29.5, 261.6), (29.5, 329.6), (30.2, 392.0), (31.0, 523.3)):
+    add(tone(fq, 2.6, 0.02, 1.2) * 0.16, t)
 mx = max(np.abs(L).max(), np.abs(R).max())
 st = np.stack([L, R], 1) / mx * 0.85
 out = os.path.join(film.E.ROOT, "build", "mix.wav")

@@ -8,7 +8,7 @@ from scipy import ndimage
 import engine as E
 from engine import W, H, FPS, paste, scaled, step, smooth, lin, jit
 
-DUR = 28.0
+DUR = 33.0
 SRCW = 756                                    # all backgrounds are 756x1344
 
 # ------------------------------------------------------------------ world helpers
@@ -286,12 +286,77 @@ def ending(t, f):
     paste(c, warm, 420 - 40 * (push - 1) * 10, 1260, seed=51, f=f)
     return c
 
+# ------------------------------------------------------------------ 8. pull back: it was a photo on a stack of papers (27.2 - 29.4)
+WIN = (212, 397, 551, 743)                     # the square window inside the papers cut-out
+WC = ((WIN[0] + WIN[2]) / 2, (WIN[1] + WIN[3]) / 2)
+
+@functools.lru_cache(None)
+def papers_holed():
+    im = E.load("papers").copy()
+    a = np.asarray(im).copy(); a[WIN[1]:WIN[3], WIN[0]:WIN[2], 3] = 0
+    im = Image.fromarray(a, "RGBA"); d = ImageDraw.Draw(im)
+    d.line((WIN[0], WIN[1], WIN[2], WIN[1]), fill=(120, 110, 96, 255), width=4)   # cut edge catches shadow
+    d.line((WIN[0], WIN[1], WIN[0], WIN[3]), fill=(120, 110, 96, 255), width=4)
+    d.line((WIN[0], WIN[3], WIN[2], WIN[3]), fill=(255, 252, 244, 255), width=3)
+    return im
+
+def pullback(t, f):
+    u = smooth(t, 27.25, 29.2)
+    u = round(u * 24) / 24
+    g0, g1 = 1930 / (WIN[3] - WIN[1]), 1480 / 1049
+    g = math.exp(math.log(g0) * (1 - u) + math.log(g1) * u)
+    dx, dy, dr = jit(f, 61, 2.0, 0)
+    cx, cy = W / 2 + dx, H / 2 - 30 * u + dy
+    c = navy_paper()
+    c.alpha_composite(E.glow_spot((100, 300, 980, 1700), (70, 90, 130), 110, 180))
+    # window content: the live close-up, at a scale that matches full screen when u = 0
+    side = g * (WIN[3] - WIN[1])
+    sc = side / H
+    end = ending(t, f)
+    inner = end.resize((max(1, int(W * sc)), max(1, int(H * sc))), Image.BILINEAR)
+    m = np.ones((inner.height, inner.width)); fe = max(2, int(inner.width * 0.12))
+    ramp = np.linspace(0, 1, fe) ** 1.5; m[:, :fe] *= ramp; m[:, -fe:] *= ramp[::-1]
+    inner.putalpha(Image.fromarray((m * 255).astype(np.uint8)))
+    sq = int(side) + 2
+    back = end.crop((0, (H - W) // 2, W, (H + W) // 2)).resize((96, 96), Image.BILINEAR) \
+        .filter(ImageFilter.GaussianBlur(10)).resize((sq, sq), Image.BILINEAR)
+    E.safe(c, back, int(cx - side / 2), int(cy - side / 2))
+    E.safe(c, inner, int(cx - inner.width / 2), int(cy - inner.height / 2))
+    # the stack, sampled straight to screen (cheap at any scale)
+    pim = papers_holed()
+    box = (WC[0] - cx / g, WC[1] - cy / g, WC[0] + (W - cx) / g, WC[1] + (H - cy) / g)
+    lay = pim.transform((W, H), Image.EXTENT, box, Image.BICUBIC)
+    if u > 0.3:
+        sh = Image.new("RGBA", (W, H), (5, 8, 16, 0))
+        sh.putalpha(lay.getchannel("A").filter(ImageFilter.GaussianBlur(14)).point(lambda v: int(v * 0.6 * (u - 0.3) / 0.7)))
+        E.safe(c, sh, 16, 22)
+    c.alpha_composite(lay)
+    return c
+
+# ------------------------------------------------------------------ 9. a new day (29.4 - 33.0)
+def day(t, f):
+    w = World("day_room", scale=1.4)
+    k = w.k
+    g = Image.new("RGBA", w.im.size, (0, 0, 0, 0))
+    ImageDraw.Draw(g).ellipse((-60 * k, 200 * k, 420 * k, 900 * k), fill=(255, 240, 205, 120))
+    w.im.alpha_composite(g.filter(ImageFilter.GaussianBlur(60 * k / 2)))
+    kk = step(t, 29.6, 32.6) * 0.5 + lin(t, 29.6, 32.6) * 0.5
+    hgt = 830 * (1 - kk) + 440 * kk
+    x = 610 * (1 - kk) + 360 * kk
+    feet = 1300 * (1 - kk) + 915 * kk
+    bob = 10 / k if (f % 2 and kk < 1) else 0
+    w.put("walk", hgt, x, feet - bob, f, seed=71)
+    fr, _ = w.shot(f, 1.04 + 0.10 * smooth(t, 29.4, 33.0), 330 / SRCW, 760 / 1344)
+    E.light_dust(fr, t, f, n=34, seed=21, box=(0, 300, 640, 1300), color=(255, 246, 220))
+    return fr
+
 def loop_back(t, f):
     return city(0.0, f)
 
 SCENES = [E.Scene(0.0, city, rip=False), E.Scene(3.0, hallway), E.Scene(7.5, door_scene),
           E.Scene(12.0, lecture, rip=False), E.Scene(17.0, orbit), E.Scene(19.6, room_phone),
-          E.Scene(22.4, room_floor), E.Scene(25.0, ending), E.Scene(27.5, loop_back)]
+          E.Scene(22.4, room_floor), E.Scene(25.0, ending), E.Scene(27.25, pullback, rip=False),
+          E.Scene(29.4, day), E.Scene(32.5, loop_back)]
 
 def post(arr, t, f, idx):
     if 11.2 <= t < 12.0:                                   # through the door: white-out
