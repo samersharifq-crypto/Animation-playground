@@ -10,6 +10,7 @@ sys.path.insert(0, ".")
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import basira_engine as E
+import fx3d as FX
 
 # ---------------------------------------------------------------- vertical setup
 E.W, E.H = 1080, 1920
@@ -185,8 +186,10 @@ def scale_parts(h):
     return s, sc("scale_col"), padded, sc("scale_panL"), sc("scale_panR")
 
 
-def draw_scale(c, cx, top, h, angle, f, t, pills=0.0, pain=0.0, small_spark=0.0, blur=0, seed=70):
-    """angle > 0 : right pan (pain) goes DOWN.  pills 0..1 fill the left pan.  pain 0..1 red sparks in the right pan."""
+def draw_scale(c, cx, top, h, angle, f, t, pills=0.0, pain=0.0, small_spark=0.0, blur=0, seed=70,
+               yaw_deg=0.0, floor_shadow=True):
+    """angle > 0 : right pan (pain) goes DOWN.  pills 0..1 fill the left pan with a clear, coloured heap.
+    pain 0..1 red sparks in the right pan.  yaw_deg turns the whole scale like a 3D object."""
     s, col, beam, panL, panR = scale_parts(int(h))
     ox, oy = cx - PIV[0] * s, top
     jx, jy, _ = E.jit(f, seed, 1.6, 0)
@@ -196,24 +199,28 @@ def draw_scale(c, cx, top, h, angle, f, t, pills=0.0, pain=0.0, small_spark=0.0,
     def hook(p):
         dx, dy = (p[0] - PIV[0]) * s, (p[1] - PIV[1]) * s
         return pv[0] + dx * math.cos(a) - dy * math.sin(a), pv[1] + dx * math.sin(a) + dy * math.cos(a)
-    lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)) if blur else c
+    if floor_shadow:
+        FX.contact_shadow(c, cx + 20, oy + 975 * s, 700 * s, alpha=200)
+    lay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     def shadowed(im, x, y):
-        sh = Image.new("RGBA", im.size, (5, 4, 3, 0))
-        sh.putalpha(im.getchannel("A").filter(ImageFilter.GaussianBlur(8)).point(lambda v: int(v * 0.5)))
-        E.safe(lay, sh, int(x + 9), int(y + 12))
+        sh = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        sh.putalpha(im.getchannel("A").filter(ImageFilter.GaussianBlur(9)).point(lambda v: int(v * 0.6)))
+        E.safe(lay, sh, int(x + 12), int(y + 16))
         E.safe(lay, im, int(x), int(y))
     shadowed(col, ox, oy)
+    heap_info = None
     for (hk, box, pan, side) in ((HOOK_L, PANL_BOX, panL, "L"), (HOOK_R, PANR_BOX, panR, "R")):
         hx, hy = hook(hk)
         px, py = hx - (hk[0] - box[0]) * s, hy - (hk[1] - box[1]) * s
         bowl_x = px + pan.width / 2
         rim_y = py + (700 - box[1]) * s
-        if side == "L" and pills > 0.01:
-            ph = int(230 * s * (0.35 + 0.65 * pills))
-            pim = E.scaled("pills", max(8, ph))
-            pim = pim.resize((int(pan.width * 0.86 * (0.6 + 0.4 * pills)), ph), Image.LANCZOS)
-            E.safe(lay, pim, int(bowl_x - pim.width / 2), int(rim_y - ph * 0.72))
         shadowed(pan, px, py)
+        if side == "L" and pills > 0.01:
+            hw = int(pan.width * 0.95)
+            him = FX.heap(hw, max(1, int(round(pills * 20))))
+            base = him.height - max(10, int(hw / 8)) * 1.4
+            E.safe(lay, him, int(bowl_x - him.width / 2), int(rim_y + 26 * s - base))
+            heap_info = (bowl_x, rim_y, hw)
         if side == "R":
             if pain > 0.01:
                 sparks(lay, bowl_x, rim_y - 40 * s, 70 * s, t, f, amount=pain, n=9, seed=11, size=s * 1.2)
@@ -222,8 +229,21 @@ def draw_scale(c, cx, top, h, angle, f, t, pills=0.0, pain=0.0, small_spark=0.0,
     rb = beam.rotate(-angle, resample=Image.BICUBIC)
     shadowed(rb, pv[0] - rb.width / 2, pv[1] - rb.height / 2)
     if blur:
-        c.alpha_composite(lay.filter(ImageFilter.GaussianBlur(blur)))
+        lay = lay.filter(ImageFilter.GaussianBlur(blur))
+    if abs(yaw_deg) > 0.3:
+        bb = lay.getbbox()
+        if bb:
+            part = lay.crop(bb)
+            pw = FX.yaw(part, yaw_deg)
+            ccx, ccy = (bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2
+            E.safe(c, pw, int(ccx - pw.width / 2), int(ccy - pw.height / 2))
+    else:
+        c.alpha_composite(lay)
+    return heap_info
 
+
+def scale_top_for_floor(h, floor_y):
+    return floor_y - 960 * h / 1017
 
 # ---------------------------------------------------------------- small drawn props
 def vapour(c, x, y, t, t0, amount=1.0, seed=9):
@@ -366,117 +386,166 @@ def _orange(name, h):
     return Image.fromarray(out.astype(np.uint8), "RGBA")
 
 
-# ---------------------------------------------------------------- scenes
+# ---------------------------------------------------------------- scenes (3D stage + psychological horror)
+def card_in(im, t, t0, dur=0.45, start=78):
+    """A paper card swinging in around its vertical axis."""
+    k = E.step(t, t0, t0 + dur)
+    return FX.yaw(im, start * (1 - k))
+
+
 def sc_hook(t, f, c):
-    """s0: awake patient close-up; camera pulls back, the surgeon's scalpel comes into the foreground."""
+    """s0: extreme close-up on the eyes; slow dolly back with real depth; the surgeon looms in the foreground."""
     t_surg, t_flask, t_ref = T("s0", "الجرّاح"), T("s0", "في"), T("s0", "يرفض")
-    pull = E.step(t, 1.2, 6.5)
-    zoom = lerp(1.32, 1.0, pull)
-    focus = E.step(t, t_surg, t_surg + 1.0)
-    c.alpha_composite(cam_bg("awake", f, zoom, 0.5, 0.40, blur=0))
-    if focus > 0.3:
-        c.alpha_composite(cam_bg("awake", f, zoom, 0.5, 0.40, blur=2.2))
-    face = (540, 760 - 120 * (1 - pull) * 0)
-    sparks(c, 560, 640, 470 * (0.8 + 0.2 * zoom), t, f, amount=1.0, n=20, seed=5, size=1.2)
-    # ether flask lights up on the table, then is pushed away
+    pull = E.step(t, 0.6, 6.6)
+    zoom = lerp(2.1, 1.0, pull)
+    orbit = 70 * math.sin(t * 0.55)
+    c.alpha_composite(FX.bg3d("awake", f, 0.5, lerp(0.30, 0.42, pull), zoom, px=orbit, py=-30 * pull, dolly=0.45))
+    sparks(c, 560 + orbit * 0.3, lerp(560, 640, pull), lerp(620, 470, pull), t, f, amount=1.0, n=22, seed=5, size=1.25)
     if t >= t_flask:
         k_out = E.step(t, t_ref + 0.1, t_ref + 0.8)
-        fx = lerp(250, -260, k_out)
-        c.alpha_composite(E.glow_spot((fx - 230, 1180, fx + 230, 1560), (255, 210, 140), int(120 * (1 - k_out)), 60))
-        pop = {0: 0.7, 1: 1.08}.get(int((t - t_flask) * FPS), 1.0)
-        put(c, "ether", 380 * pop, fx, 1380, f, 41, rot=-22 * k_out)
-    # surgeon in the foreground
-    if t >= t_surg - 0.2:
-        k = E.step(t, t_surg - 0.2, t_surg + 0.9)
-        put(c, "surgeon", 1250, lerp(1400, 830, k), 1420, f, 3)
+        fx = lerp(250, -280, k_out) - orbit * 1.2
+        c.alpha_composite(E.glow_spot((fx - 230, 1180, fx + 230, 1560), (255, 200, 130), int(110 * (1 - k_out)), 60))
+        im = card_in(E.scaled("ether", 400), t, t_flask, 0.35, 60)
+        E.paste(c, im, fx, 1380, rot=-22 * k_out, seed=41, f=f)
+    if t >= t_surg - 0.3:
+        k = E.step(t, t_surg - 0.3, t_surg + 1.1)
+        x = lerp(1500, 840, k) - orbit * 1.8
+        sim = FX.yaw(E.scaled("surgeon", 1320), -14 + orbit * 0.06)
+        E.paste(c, sim, x, 1440, seed=3, f=f)
+        # scalpel glint
+        g = t - (t_surg + 1.2)
+        if 0 <= g < 0.35:
+            one_spark_white(c, x - 205, 1560, 1 - g / 0.35)
+    FX.dust(c, t, f, orbit, 0, n=30)
+
+
+def one_spark_white(c, x, y, a):
+    lay = Image.new("RGBA", (260, 260), (0, 0, 0, 0))
+    d = ImageDraw.Draw(lay)
+    L = 110 * a
+    d.polygon([(130 - L, 130), (130, 124), (130 + L, 130), (130, 136)], fill=(255, 255, 250, 255))
+    d.polygon([(130, 130 - L * 0.7), (124, 130), (130, 130 + L * 0.7), (136, 130)], fill=(255, 255, 250, 255))
+    g = lay.filter(ImageFilter.GaussianBlur(10))
+    g.alpha_composite(lay)
+    E.safe(c, g, int(x - 130), int(y - 130))
+
+
+@functools.lru_cache(None)
+def shaft_layer():
+    lay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(lay)
+    d.polygon([(380, -50), (700, -50), (900, 1500), (180, 1500)], fill=(255, 246, 220, 60))
+    return lay.filter(ImageFilter.GaussianBlur(60))
 
 
 def sc_theatre(t, f, c):
-    """s1: 1846 amphitheatre, camera descends to the floor; the year is stamped."""
+    """s1: the 1846 amphitheatre; the camera cranes down past the rows (rows move at their own depth)."""
     t0 = SEG["s1"][0]
     t_year = T("s1", "ألف")
     down = E.step(t, t0, T("s1", "نام") - 0.3)
-    c.alpha_composite(cam_bg("theatre", f, lerp(1.25, 1.05, down), 0.5, lerp(0.30, 0.62, down)))
+    orbit = 60 * math.sin((t - t0) * 0.6)
+    c.alpha_composite(FX.bg3d("theatre", f, 0.5, lerp(0.30, 0.60, down), lerp(1.3, 1.05, down),
+                              px=orbit, py=lerp(160, -60, down), dolly=0.5))
+    sh = shaft_layer().copy()
+    fl = 0.75 + 0.25 * math.sin(f * 0.7) * math.sin(f * 0.23)
+    sh.putalpha(sh.getchannel("A").point(lambda v: int(v * fl)))
+    c.alpha_composite(sh)
+    FX.dust(c, t, f, orbit, 0, n=40, seed=7)
     if t >= t_year:
         k = int((t - t_year) * FPS)
         s = {0: 1.9, 1: 1.5, 2: 0.92, 3: 1.03}.get(k, 1.0)
         im = stamp_img("١٨٤٦")
         im = im.resize((int(im.width * s), int(im.height * s)), Image.LANCZOS)
+        im = FX.yaw(im, 18 * math.sin((t - t_year) * 0.8) * math.exp(-(t - t_year) * 0.6) + orbit * 0.05)
         jx, jy = (14, -8) if k == 3 else (0, 0)
-        E.paste(c, im, 540 + jx, 900 + jy, rot=-7, seed=81, f=f)
+        E.paste(c, im, 540 + jx - orbit * 0.6, 900 + jy, rot=-7, seed=81, f=f)
 
 
 def sc_sleep(t, f, c):
-    """s1: ether vapour, the red sparks go out and his eyes close."""
+    """s1: ether vapour; the red sparks go out and his eyes close. The camera creeps in."""
     t_sleep = T("s1", "نام")
     k = E.step(t, t_sleep + 0.35, t_sleep + 1.3)
-    zoom = lerp(1.1, 1.18, E.step(t, t_sleep - 0.4, SEG["s1"][1]))
-    awake = cam_bg("awake", f, zoom, 0.5, 0.42)
-    if k < 1:
-        c.alpha_composite(awake)
+    push = E.step(t, t_sleep - 0.4, SEG["s1"][1])
+    zoom = lerp(1.05, 1.3, push)
+    orbit = 50 * math.sin(t * 0.5)
+    awake = FX.bg3d("awake", f, 0.5, 0.42, zoom, px=orbit, dolly=0.4)
+    c.alpha_composite(awake)
     if k > 0:
-        sl = cam_bg("asleep", f, zoom, 0.5, 0.42)
+        sl = FX.bg3d("asleep", f, 0.5, 0.42, zoom, px=orbit, dolly=0.4)
         if k < 1:
             sl.putalpha(int(255 * k))
         c.alpha_composite(sl)
-    sparks(c, 560, 660, 470, t, f, amount=max(0, 1 - E.step(t, t_sleep + 0.1, t_sleep + 1.0)), n=18, seed=5, size=1.2)
-    vapour(c, 470, 1320, t, t_sleep - 0.3, amount=1 - 0.6 * E.step(t, t_sleep + 2.5, t_sleep + 4))
+    sparks(c, 560, 660, 470, t, f, amount=max(0, 1 - E.step(t, t_sleep + 0.1, t_sleep + 1.0)), n=20, seed=5, size=1.2)
+    vapour(c, 470 - orbit, 1320, t, t_sleep - 0.3, amount=1 - 0.5 * E.step(t, t_sleep + 2.5, t_sleep + 4))
+    FX.dust(c, t, f, orbit, 0, n=24, seed=9)
+
+
+FLOOR = 1500
 
 
 def sc_doubt(t, f, c):
-    """s2: the hesitant surgeon; the brass scale descends and tips toward pain; three body clippings, struck out."""
+    """s2: a dark room. The hesitant surgeon in the foreground; the scale lowers onto the floor behind him and
+    tips toward pain; three anatomical cards swing in, then are struck out."""
     t0 = SEG["s2"][0]
+    orbit = 110 * math.sin((t - t0) * 0.33)
+    c.alpha_composite(FX.stage_bg(f, orbit, horizon=1080))
     t_sc = t0 + 0.3
     t_pain = T("s2", "الألم")
-    drop = E.step(t, t_sc, t_sc + 1.2)
+    drop = E.step(t, t_sc, t_sc + 1.3)
     ang = lerp(0, 24, E.step(t, t_pain, t_pain + 0.9))
     if t >= t_pain + 0.75:
         ang += 2.5 * math.exp(-(t - t_pain - 0.75) * 4) * math.cos((t - t_pain) * 18)
     clip_t = [T("s2", "المناعة"), T("s2", "القلب"), T("s2", "الشفاء")]
-    focus_shift = E.step(t, clip_t[0] - 0.3, clip_t[0] + 0.4)
-    draw_scale(c, 600, lerp(-1100, 330, drop), 980, ang, f, t, pain=E.step(t, t_pain, t_pain + 0.6),
-               blur=int(round(2 * focus_shift)))
-    # surgeon in front, left; goes soft when the clippings arrive
-    put(c, "surgeon_doubt", 1180, 250, 1420, f, 3, blur=int(round(3 * focus_shift)),
-        dim=round(1 - 0.35 * focus_shift, 2))
-    t_no = T("s2", "دليل")
+    focus = E.step(t, clip_t[0] - 0.3, clip_t[0] + 0.4)
+    h = 960
+    top = scale_top_for_floor(h, FLOOR - 140)
+    draw_scale(c, 640 - orbit * 0.45, lerp(-1300, top, drop), h, ang, f, t, pain=E.step(t, t_pain, t_pain + 0.6),
+               blur=int(round(2 * focus)), yaw_deg=-orbit * 0.07, floor_shadow=drop > 0.97)
+    FX.fog(c, t, y0=1250, strength=0.30)
+    # surgeon: nearest layer, moves most
+    sx = 250 - orbit * 1.4
+    FX.contact_shadow(c, sx + 30, 1890, 520, alpha=200)
+    im = FX.yaw(dimmed("surgeon_doubt", 1300, int(round(3 * focus)), round(1 - 0.45 * focus, 2)), 10 - orbit * 0.06)
+    E.paste(c, im, sx, 1290, seed=3, f=f)
     t_none = T("s2", "ولم")
-    for i, (name, x, h) in enumerate((("cell", 830, 250), ("heart", 540, 300), ("arm", 250, 190))):
+    for i, (name, x, hh) in enumerate((("cell", 830, 250), ("heart", 540, 300), ("arm", 250, 190))):
         tt = clip_t[i]
         if t < tt:
             continue
-        k = int((t - tt) * FPS)
-        s = {0: 0.6, 1: 1.1, 2: 0.96}.get(k, 1.0)
-        if name == "heart":
-            s *= 1 + 0.06 * hb(t)
-        put(c, name, h * s, x, 1180, f, 90 + i)
+        s = 1 + (0.06 * hb(t) if name == "heart" else 0)
+        im = card_in(E.scaled(name, int(hh * s)), t, tt, 0.4, 85)
+        bob = 10 * math.sin(t * 1.3 + i)
+        E.paste(c, im, x - orbit * 0.9, 1150 + bob, seed=90 + i, f=f)
     if t >= t_none:
         for i, x in enumerate((830, 540, 250)):
             u = E.step(t, t_none + 0.15 * i + 0.4, t_none + 0.15 * i + 0.75)
-            strike(c, x - 150, 1120, x + 150, 1240, u, f)
+            strike(c, x - 150 - orbit * 0.9, 1090, x + 150 - orbit * 0.9, 1210, u, f)
+    FX.dust(c, t, f, orbit, 0, n=36, seed=11)
 
 
 def sc_sydenham(t, f, c):
-    """s3: 1600s physician writes by candlelight; his sentence inks in; the scale far behind levels for a moment."""
+    """s3: candle-lit; the 1600s physician writes; his sentence swings in; the scale far behind levels for a moment."""
+    t0 = SEG["s3"][0]
+    orbit = 90 * math.sin((t - t0) * 0.4)
+    c.alpha_composite(FX.stage_bg(f, orbit, horizon=1000, lamp=0.5))
     t_mod = T("s3", "معتدل")
-    ang = 24
     ang = lerp(24, 0, E.step(t, t_mod - 0.1, t_mod + 0.5))
     ang = lerp(ang, 24, E.step(t, t_mod + 1.4, t_mod + 2.2))
-    draw_scale(c, 720, 640, 760, ang, f, t, pain=0.7, blur=3)
-    # candle light
-    fl = 0.85 + 0.15 * math.sin(f * 1.7) * math.sin(f * 0.9)
-    c.alpha_composite(E.glow_spot((380, 760, 1000, 1360), (255, 190, 100), int(70 * fl), 90))
-    put(c, "sydenham", 640, 470, 1220, f, 5)
+    h = 700
+    draw_scale(c, 760 - orbit * 0.25, scale_top_for_floor(h, 1180), h, ang, f, t, pain=0.7, blur=3, yaw_deg=-orbit * 0.05)
+    FX.fog(c, t, y0=1150, strength=0.35)
+    fl = 0.8 + 0.2 * math.sin(f * 1.7) * math.sin(f * 0.9)
+    c.alpha_composite(E.glow_spot((260, 760, 1000, 1500), (255, 170, 80), int(95 * fl), 100))
+    x = 470 - orbit * 1.1
+    FX.contact_shadow(c, x, 1500, 700, alpha=180)
+    E.paste(c, FX.yaw(E.scaled("sydenham", 640), 12 - orbit * 0.05), x, 1240, seed=5, f=f)
     qw = [T("s3", w) for w in ("قدر", "معتدل", "من", "الألم", "أداة", "تستخدمها", "الطبيعة", "لأغراض")]
     qw.append(T("s3", "حكيمة"))
-    n = sum(1 for x in qw if t >= x)
+    n = sum(1 for x_ in qw if t >= x_)
     if n:
-        im = quote_paper(n)
-        k = int((t - qw[0]) * FPS)
-        s = {0: 0.6, 1: 1.06, 2: 0.98}.get(k, 1.0)
-        if s != 1.0:
-            im = im.resize((int(im.width * s), int(im.height * s)), Image.LANCZOS)
-        E.paste(c, im, 540, 430, rot=1.2, seed=60, f=f)
+        im = card_in(quote_paper(n), t, qw[0], 0.5, 80)
+        E.paste(c, im, 540 - orbit * 0.3, 450, rot=1.2, seed=60, f=f)
+    FX.dust(c, t, f, orbit, 0, n=30, seed=13)
 
 
 def scale_flip_angle(t):
@@ -484,42 +553,49 @@ def scale_flip_angle(t):
     if t < t_flip:
         return 24 + 1.2 * math.sin(t * 3)
     u = t - t_flip
-    if u < 0.25:                                # violent shake
+    if u < 0.25:
         return 24 + 6 * math.sin(u * 80)
     u -= 0.25
-    k = E.step(u, 0, 0.55)
-    a = lerp(24, -26, k)
+    a = lerp(24, -26, E.step(u, 0, 0.55))
     if u > 0.55:
         a += 5 * math.exp(-(u - 0.55) * 3) * math.cos((u - 0.55) * 11)
     return a
 
 
 def sc_flip(t, f, c):
-    """s4: climax — the scale flips: pain flies up empty, the other pan drops filling with pills."""
+    """s4: climax. The scale flips; pain flies up empty; coloured pills pour into the other pan;
+    the camera pushes in on the pills."""
+    t0 = SEG["s4"][0]
     t_flip = T("s4", "انقلب")
-    k_fill = E.step(t, t_flip + 0.35, t_flip + 1.6)
+    orbit = 80 * math.sin((t - t0) * 0.45)
+    c.alpha_composite(FX.stage_bg(f, orbit, horizon=1050))
+    k_fill = E.step(t, t_flip + 0.35, t_flip + 1.8)
     pain = 1.0 - E.step(t, t_flip + 0.2, t_flip + 0.6)
     shake = (0, 0)
-    if 0 <= t - t_flip < 0.4:
-        r = np.random.default_rng(f)
-        shake = r.normal(0, 18, 2)
-    zoom_top = lerp(330, 300, E.step(t, SEG["s4"][0], SEG["s4"][1]))
-    draw_scale(c, 540 + shake[0], zoom_top + shake[1], 1100, scale_flip_angle(t), f, t, pills=k_fill, pain=pain)
-    # pills pouring into the left pan
-    if False:
-        r = np.random.default_rng(f)
-        for i in range(10):
-            x = r.uniform(200, 380)
-            y = r.uniform(-50, 900)
-            pim = E.scaled("pills", 46).crop((r.integers(0, 120), 0, r.integers(130, 200), 46))
-            E.paste(c, pim, x, y, rot=r.uniform(0, 360), shadow=False)
+    if 0 <= t - t_flip < 0.45:
+        shake = np.random.default_rng(f).normal(0, 22, 2)
+    push = E.step(t, t_flip + 1.0, t_flip + 3.2)
+    h = lerp(1080, 1500, push)
+    cx = lerp(540, 860, push) - orbit * 0.5
+    top = lerp(scale_top_for_floor(1080, FLOOR - 120), 230, push)
+    info = draw_scale(c, cx + shake[0], top + shake[1], h, scale_flip_angle(t), f, t, pills=k_fill, pain=pain,
+                      yaw_deg=-orbit * 0.07)
+    if info:
+        bx, ry, hw = info
+        FX.falling_pills(c, t, t_flip + 0.3, t_flip + 1.7, (bx, ry), hw, f)
+    elif t >= t_flip + 0.3:
+        FX.falling_pills(c, t, t_flip + 0.3, t_flip + 1.7, (cx - 240 * h / 1017, top + 700 * h / 1017), 250, f)
+    FX.fog(c, t, y0=1350, strength=0.25)
+    FX.dust(c, t, f, orbit, 0, n=30, seed=15)
 
 
 def sc_pharmacy(t, f, c):
-    """s4: the amphitheatre has become a lit pharmacy; prescriptions rain; one in four."""
+    """s4: the present. A cold, flickering pharmacy aisle; the camera walks down it; prescriptions fall
+    at every depth; four people — three dark, one lit orange with a pill."""
     t0 = scene_t0("pharmacy")
-    push = E.step(t, t0, SEG["s4"][1])
-    c.alpha_composite(cam_bg("pharmacy", f, lerp(1.08, 1.22, push), 0.5, 0.48, blur=1.2 if t >= T("s4", "أكثر") - 0.2 else 0))
+    push = E.step(t, t0, SEG["s4"][1] + 0.5)
+    orbit = 50 * math.sin((t - t0) * 0.7)
+    c.alpha_composite(FX.bg3d("pharmacy", f, 0.5, 0.47, lerp(1.0, 1.4, push), px=orbit, dolly=0.3))
     rx_rain(c, t, T("s4", "فتدفّقت"), f)
     t_ppl = T("s4", "أكثر")
     t_four = T("s4", "أربعة")
@@ -529,32 +605,41 @@ def sc_pharmacy(t, f, c):
         if t < ti:
             continue
         k = E.step(t, ti, ti + 0.4)
-        y = lerp(-500, 1150, k)
+        y = lerp(-500, 1180, k)
+        xx = x - orbit * 1.2
+        if k >= 1:
+            FX.contact_shadow(c, xx, 1560, 300, alpha=170)
         if i == 2 and t >= t_four:
             ko = E.step(t, t_four, t_four + 0.4)
-            c.alpha_composite(E.glow_spot((x - 260, 600, x + 260, 1700), (255, 170, 80), int(110 * ko), 70))
-            put(c, "modern", 760, x, y, f, 30 + i, dim=0.75)
+            c.alpha_composite(E.glow_spot((xx - 260, 600, xx + 260, 1700), (255, 160, 70), int(120 * ko), 70))
+            E.paste(c, dimmed("modern", 760, 0, 0.35), xx, y, seed=30 + i, f=f)
             im = orange_figure("modern_pill", 760)
             if ko < 1:
                 im = im.copy(); im.putalpha(im.getchannel("A").point(lambda v: int(v * ko)))
-            E.paste(c, im, x, y, seed=30 + i, f=f, shadow=False)
+            E.paste(c, im, xx, y, seed=30 + i, f=f, shadow=False)
         else:
-            put(c, "modern", 760, x, y, f, 30 + i, dim=0.75 if t >= t_four else 1.0)
+            E.paste(c, dimmed("modern", 760, 0, 0.35 if t >= t_four else 0.8), xx, y, seed=30 + i, f=f)
+    FX.dust(c, t, f, orbit, 0, n=26, seed=17)
 
 
 def sc_middle(t, f, c):
-    """s5: the scale alone, swinging and settling toward the middle; one small red spark stays."""
+    """s5: the scale alone under the lamp, swinging and settling toward the middle; the dark closes in."""
     t0 = SEG["s5"][0]
     u = t - t0
+    orbit = 100 * math.sin(u * 0.3)
+    c.alpha_composite(FX.stage_bg(f, orbit, horizon=1050))
     ang = -26 * math.exp(-u * 0.45) * math.cos(u * 2.4)
     t_small = T("s5", "ألمًا")
-    draw_scale(c, 540, 330, 1100, ang, f, t, pills=0.35, small_spark=E.step(t, t_small, t_small + 0.4))
+    h = lerp(1080, 1180, E.step(t, t0, SEG["s5"][1]))
+    draw_scale(c, 540 - orbit * 0.5, scale_top_for_floor(h, FLOOR - 100), h, ang, f, t, pills=0.45,
+               small_spark=E.step(t, t_small, t_small + 0.4), yaw_deg=-orbit * 0.08)
+    FX.fog(c, t, y0=1350, strength=0.3)
+    FX.dust(c, t, f, orbit, 0, n=30, seed=19)
 
 
 def sc_logo(t, f, c):
     """Book title, a pill rolls to the middle and becomes the eye of بصيرة."""
-    t0 = LOGO[0]
-    u = t - t0
+    u = t - LOGO[0]
     roll = E.step(u, 0.3, 1.4)
     x = lerp(180, 540, roll)
     y = 960
@@ -567,13 +652,12 @@ def sc_logo(t, f, c):
         d.line(E.torn_poly(top, f, 6, 2), fill=E.CREAM + (255,), width=14)
         d.line(E.torn_poly(bot, f, 7, 2), fill=E.CREAM + (255,), width=14)
     rr = 70 + 40 * eye_k
-    c.alpha_composite(E.glow_spot((x - rr * 2, y - rr * 2, x + rr * 2, y + rr * 2), (255, 170, 80), 120, 40))
-    ang = roll * 540
+    c.alpha_composite(E.glow_spot((x - rr * 2, y - rr * 2, x + rr * 2, y + rr * 2), (255, 160, 70), 130, 40))
     pill = Image.new("RGBA", (int(rr * 2) + 8, int(rr * 2) + 8), (0, 0, 0, 0))
     pd = ImageDraw.Draw(pill)
     pd.ellipse((4, 4, rr * 2 + 4, rr * 2 + 4), fill=ORANGE + (255,), outline=E.CREAM + (255,), width=6)
     pd.line((rr + 4, 10, rr + 4, rr * 2 - 2), fill=(170, 80, 30, 255), width=5)
-    E.paste(c, pill.rotate(ang, resample=Image.BICUBIC), x, y, seed=99, f=f)
+    E.paste(c, pill.rotate(roll * 540, resample=Image.BICUBIC), x, y, seed=99, f=f)
     if u > 1.9:
         font = ImageFont.truetype(E.FONT, 120)
         k = int((u - 1.9) * FPS)
@@ -588,17 +672,16 @@ def scene_t0(name):
     return {s.draw.__name__: s.t0 for s in SCENES}["sc_" + name]
 
 
-# scene boundaries land on the phrase that starts the beat
 SCENES = [
     E.Scene(0.0, None, sc_hook, bg=None),
     E.Scene(SEG["s1"][0], None, sc_theatre, bg=None),
     E.Scene(T("s1", "نام") - 0.35, None, sc_sleep, bg=None),
-    E.Scene(SEG["s2"][0], None, sc_doubt, bg=SEPIA),
-    E.Scene(SEG["s3"][0], None, sc_sydenham, bg=SEPIA),
-    E.Scene(SEG["s4"][0], None, sc_flip, bg=SEPIA, rip=True),
+    E.Scene(SEG["s2"][0], None, sc_doubt, bg=None),
+    E.Scene(SEG["s3"][0], None, sc_sydenham, bg=None),
+    E.Scene(SEG["s4"][0], None, sc_flip, bg=None),
     E.Scene(T("s4", "فتدفّقت") - 0.45, None, sc_pharmacy, bg=None),
-    E.Scene(SEG["s5"][0], None, sc_middle, bg=SEPIA),
-    E.Scene(LOGO[0], None, sc_logo, bg=SEPIA),
+    E.Scene(SEG["s5"][0], None, sc_middle, bg=None),
+    E.Scene(LOGO[0], None, sc_logo, bg=(16, 13, 12)),
 ]
 
 L = E.Label
@@ -618,22 +701,45 @@ LABELS = [
 ]
 
 
+
+
+# subliminal 2-frame flashes of the patient's eyes (psychological horror)
+SUBLIM = [T("s0", "يرفض") + 0.45, T("s2", "دليل") + 0.5, T("s4", "خطرًا") + 0.1, SEG["s5"][1] - 0.35]
+# words that get an RGB-split jolt
+JOLTS = [T("s0", "مستيقظ"), T("s0", "يرفض"), T("s2", "دليل"), T("s4", "انقلب"), T("s4", "أربعة"), T("s5", "شيئًا")]
+
+
 def post(arr, t, f, idx):
-    """The present is lit in pill-orange; a white flash on the flip."""
     t_flip = T("s4", "انقلب")
-    k = 0.0
-    if SEG["s4"][0] <= t < SEG["s5"][0]:
-        k = E.step(t, t_flip + 0.25, t_flip + 1.1) * 0.5
-    elif LOGO[0] <= t:
-        k = 0.0
-    if k > 0:
-        lum = arr.mean(2, keepdims=True) / 255
-        orng = lum * np.array([255, 160, 80])[None, None, :] * 1.08
-        arr = arr * (1 - k) + orng * k
-    fl = {0: 0.65, 1: 0.3, 2: 0.1}.get(int(math.floor((t - t_flip - 0.25) * FPS + 1e-6)), 0) if t >= t_flip + 0.25 else 0
-    if fl:
-        arr = arr * (1 - fl) + 250 * fl
+    early = t < SEG["s2"][0]
+    vig = 0.55 + (0.3 * hb(t) if early else 0.0)
+    if SEG["s5"][0] <= t < LOGO[0]:
+        vig = lerp(0.6, 1.25, E.step(t, SEG["s5"][0], SEG["s5"][1]))      # the dark closes in
+    flick = 0.10
+    if scene_t0("pharmacy") <= t < SEG["s5"][0]:
+        flick = 0.22                                                       # fluorescent tubes
+    sat = 0.4
+    if LOGO[0] <= t:
+        vig, flick, sat = 0.45, 0.03, 1.0
+    arr = FX.horror_grade(arr, t, f, vig=vig, flicker=flick, sat=sat)
+    # the flip: white flash
+    if t >= t_flip + 0.25:
+        fl = {0: 0.7, 1: 0.3, 2: 0.1}.get(int(math.floor((t - t_flip - 0.25) * FPS + 1e-6)), 0)
+        if fl:
+            arr = arr * (1 - fl) + 250 * fl
+    for tj in JOLTS:
+        k = int(math.floor((t - tj) * FPS + 1e-6))
+        if k in (0, 1):
+            arr = FX.rgb_split(arr, 14 if k == 0 else 6)
+            arr = np.asarray(E.glitch(Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)), f, band=30, every=140, amount=30).convert("RGB")).astype(float)
+    for ts in SUBLIM:
+        k = int(math.floor((t - ts) * FPS + 1e-6))
+        if k in (0, 1):
+            arr = FX.rgb_split(FX.eyes_flash() * (1.0 if k == 0 else 0.6) + arr * (0 if k == 0 else 0.4), 12)
+    if t < LOGO[0]:
+        arr = FX.scratches(arr, f)
     return arr
+
 
 
 def word_table():
