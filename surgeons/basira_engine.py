@@ -11,6 +11,7 @@ INK = (22, 30, 48)
 BRICK = (178, 62, 42)
 GOLD = (214, 168, 72)
 ROOT = "."
+FADE = True
 FONT = None
 
 def setup(root, font):
@@ -368,6 +369,7 @@ def scene_canvas(s, t, f):
     s.draw(t, f, c); return c
 
 def frame(f, scenes, labels, dur, post=None, out_dir=None):
+    if PRE_LABEL_POST: return frame2(f, scenes, labels, dur, post, out_dir)
     """post(arr, t, f, scene_index) -> arr lets a part add lightning, drains, flashes, etc."""
     t = f / FPS
     idx = max(i for i, s in enumerate(scenes) if s.t0 <= t)
@@ -378,8 +380,8 @@ def frame(f, scenes, labels, dur, post=None, out_dir=None):
     draw_labels(cur, labels, t, f)
     arr = np.asarray(cur.convert("RGB")).astype(float)
     if post: arr = post(arr, t, f, idx)
-    if t < 0.4: arr *= t / 0.4
-    if t > dur - 0.5: arr *= max(0, (dur - t) / 0.5)
+    if FADE and t < 0.4: arr *= t / 0.4
+    if FADE and t > dur - 0.5: arr *= max(0, (dur - t) / 0.5)
     arr = arr + np.random.default_rng(1000 + f).normal(0, 7, (H, W, 1))      # film grain
     Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB").save(
         os.path.join(out_dir or os.path.join(ROOT, "frames"), f"{f:05d}.png"))
@@ -405,3 +407,21 @@ def encode(audio, out, dur, frames_dir=None):
                     "-i", audio, "-r", "24", "-c:v", "libx264", "-profile:v", "main", "-level", "4.0", "-preset", "veryfast",
                     "-crf", "30", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", "-ac", "2", "-ar", "44100",
                     "-t", f"{dur}", "-movflags", "+faststart", out], check=True)
+
+PRE_LABEL_POST = False
+def frame2(f, scenes, labels, dur, post=None, out_dir=None):
+    """Like frame(), but post() (tints, flashes) runs before labels, so label colours stay true."""
+    t = f / FPS
+    idx = max(i for i, s in enumerate(scenes) if s.t0 <= t)
+    s = scenes[idx]
+    cur = scene_canvas(s, t, f)
+    if idx > 0 and s.rip and t - s.t0 < RIP:
+        cur = tear(scene_canvas(scenes[idx - 1], t, f), cur, (t - s.t0) / RIP, f)
+    if post:
+        arr = post(np.asarray(cur.convert("RGB")).astype(float), t, f, idx)
+        cur = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
+    draw_labels(cur, labels, t, f)
+    arr = np.asarray(cur.convert("RGB")).astype(float)
+    arr = arr + np.random.default_rng(1000 + f).normal(0, 7, (H, W, 1))
+    Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGB").save(
+        os.path.join(out_dir or os.path.join(ROOT, "frames"), f"{f:05d}.png"))
