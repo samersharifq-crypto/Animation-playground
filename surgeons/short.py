@@ -637,35 +637,46 @@ def sc_middle(t, f, c):
     FX.dust(c, t, f, orbit, 0, n=30, seed=19)
 
 
+@functools.lru_cache(None)
+def brand(name, w):
+    im = Image.open("../brand/" + name).convert("RGBA")
+    return im.resize((int(w), int(im.height * w / im.width)), Image.LANCZOS)
+
+
 def sc_logo(t, f, c):
-    """Book title, a pill rolls to the middle and becomes the eye of بصيرة."""
+    """A pill rolls to the centre and becomes the eye of the بصيرة mark; the ب drops onto it; the wordmark follows."""
     u = t - LOGO[0]
-    roll = E.step(u, 0.3, 1.4)
-    x = lerp(180, 540, roll)
-    y = 960
-    eye_k = E.step(u, 1.3, 1.9)
-    d = ImageDraw.Draw(c)
-    if eye_k > 0:
-        w2, h2 = 330 * eye_k, 150 * eye_k
-        top = [(540 + w2 * math.cos(a), y - h2 * math.sin(a)) for a in np.linspace(0, math.pi, 40)]
-        bot = [(540 + w2 * math.cos(a), y - h2 * math.sin(a)) for a in np.linspace(math.pi, 2 * math.pi, 40)]
-        d.line(E.torn_poly(top, f, 6, 2), fill=E.CREAM + (255,), width=14)
-        d.line(E.torn_poly(bot, f, 7, 2), fill=E.CREAM + (255,), width=14)
-    rr = 70 + 40 * eye_k
-    c.alpha_composite(E.glow_spot((x - rr * 2, y - rr * 2, x + rr * 2, y + rr * 2), (255, 160, 70), 130, 40))
-    pill = Image.new("RGBA", (int(rr * 2) + 8, int(rr * 2) + 8), (0, 0, 0, 0))
-    pd = ImageDraw.Draw(pill)
-    pd.ellipse((4, 4, rr * 2 + 4, rr * 2 + 4), fill=ORANGE + (255,), outline=E.CREAM + (255,), width=6)
-    pd.line((rr + 4, 10, rr + 4, rr * 2 - 2), fill=(170, 80, 30, 255), width=5)
-    E.paste(c, pill.rotate(roll * 540, resample=Image.BICUBIC), x, y, seed=99, f=f)
-    if u > 1.9:
-        font = ImageFont.truetype(E.FONT, 120)
-        k = int((u - 1.9) * FPS)
-        s = {0: 0.6, 1: 1.08}.get(k, 1.0)
-        tim = Image.new("RGBA", (600, 220), (0, 0, 0, 0))
-        ImageDraw.Draw(tim).text((300, 110), "بصيرة", font=font, fill=E.CREAM + (255,), anchor="mm", direction="rtl", language="ar")
-        tim = tim.resize((int(600 * s), int(220 * s)))
-        E.paste(c, tim, 540, 1240, shadow=False, seed=98, f=f)
+    k = 0.8                                   # scale of the square-mark geometry
+    ex, ey = 540, 900                         # eye centre
+    roll = E.step(u, 0.25, 1.25)
+    x = lerp(120, ex, roll)
+    r = 110 * k
+    morph = E.step(u, 1.25, 1.6)
+    c.alpha_composite(E.glow_spot((x - r * 2.2, ey - r * 2.2, x + r * 2.2, ey + r * 2.2), (255, 150, 70), int(120 * (1 - morph) + 40), 40))
+    if morph < 1:
+        pill = Image.new("RGBA", (int(r * 2) + 8, int(r * 2) + 8), (0, 0, 0, 0))
+        pd = ImageDraw.Draw(pill)
+        pd.ellipse((4, 4, r * 2 + 4, r * 2 + 4), fill=ORANGE + (255,), outline=E.CREAM + (255,), width=6)
+        pd.line((r + 4, 10, r + 4, r * 2 - 2), fill=(170, 80, 30, 255), width=5)
+        pill = pill.rotate(roll * 540, resample=Image.BICUBIC)
+        if morph > 0:
+            pill.putalpha(pill.getchannel("A").point(lambda v: int(v * (1 - morph))))
+        E.paste(c, pill, x, ey, seed=99, f=f, shadow=False)
+    if morph > 0:
+        eye = brand("piece-eye.png", 220 * k * (1.25 - 0.25 * morph))
+        eye = eye.copy(); eye.putalpha(eye.getchannel("A").point(lambda v: int(v * morph)))
+        E.paste(c, eye, ex, ey, shadow=False)
+    if u >= 1.7:
+        stroke = brand("piece-ba-stroke-on-dark.png", 704 * k)
+        d = E.step(u, 1.7, 2.05)
+        sy = lerp(-300, ey - 198 * k - stroke.height / 2, d)
+        jolt = 10 if 0 <= u - 2.05 < 1 / FPS else 0
+        E.paste(c, stroke, ex, sy + jolt, shadow=False)
+    if u >= 2.2:
+        wm = brand("basira-wordmark-on-dark.png", 620)
+        a = E.step(u, 2.2, 2.6)
+        wm = wm.copy(); wm.putalpha(wm.getchannel("A").point(lambda v: int(v * a)))
+        E.paste(c, wm, 540, 1330 + 30 * (1 - a), shadow=False)
 
 
 def scene_t0(name):
@@ -697,7 +708,7 @@ LABELS = [
       hide=SEG["s4"][1], x=540, y=330, size=80),
     L("ألمًا صغيرًا", ("ألمًا", "صغيرًا"), [T("s5", "ألمًا"), T("s5", "صغيرًا")], hide=T("s5", "يقول"), x=540, y=250, size=88),
     L("يقول لك شيئًا؟", ("شيئًا؟",), [T("s5", "يقول"), T("s5", "لك"), T("s5", "شيئًا")], hide=SEG["s5"][1], x=540, y=250, size=88),
-    L("أمة الدوبامين", (), [LOGO[0] + 0.1, LOGO[0] + 0.3], hide=DUR + 1, x=540, y=560, size=80),
+    L("أمة الدوبامين", (), [LOGO[0] + 0.1, LOGO[0] + 0.3], hide=DUR + 1, x=540, y=330, size=80),
 ]
 
 
